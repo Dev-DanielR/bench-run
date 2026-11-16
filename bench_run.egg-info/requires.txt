@@ -1,8 +1,0 @@
-matplotlib
-httpx
-starlette
-uvicorn
-tomli-w
-
-[dev]
-pytest
