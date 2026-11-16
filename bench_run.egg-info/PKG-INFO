@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: bench-run
+Version: 0.1.0
+Summary: TOML-driven experiment harness: Run, MatrixRun, CampaignRun
+Requires-Python: >=3.11
+Requires-Dist: matplotlib
+Requires-Dist: httpx
+Requires-Dist: starlette
+Requires-Dist: uvicorn
+Requires-Dist: tomli-w
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
