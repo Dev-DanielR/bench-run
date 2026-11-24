@@ -10,28 +10,32 @@ TOML-driven experiment orchestration: single runs, ablation matrices with finger
 
 ## Get started
 
+Walk through the self-contained demos under [`examples/`](examples/) (run → matrix → campaign → preflight → resume → distributed). Each folder sets `BENCH_RUN_ROOT` so configs and results stay local to that example.
+
+```bash
+pip install -e .
+cd examples/01_run
+python run.py --config baseline.toml
+```
+
+Minimal project shape:
+
 ```python
-# my_bench.py
-from bench_run import Run, MatrixRun, CampaignRun, main
+# run.py
+from bench_run import Run, main
 
 def runner(run: Run) -> None:
-    # your experiment body
-    run.addMetric("accuracy", 0.8)
+    run.add_metric("accuracy", 0.8)
 
 if __name__ == "__main__":
     raise SystemExit(main(runner))
 ```
 
 ```bash
-# Local matrix (configs under bench_run/configs/matrix/)
-python my_bench.py --config factor_a.toml
-
-# Resume
-python my_bench.py --resume bench_run/results/campaign/20250101_120000_phased
-
-# Distributed: coordinator drives EXP; workers only claim Runs
-python my_bench.py --role coordinator --config lab.toml --config phased.toml
-python my_bench.py --role worker --config lab.toml
+python run.py --config factor_a.toml
+python run.py --resume bench_run/results/matrix/<stamp>_factor_a
+python run.py --role coordinator --config lab.toml --config factor_a.toml
+python run.py --role worker --config lab.toml
 ```
 
 Or drive layers in code (local):
@@ -56,7 +60,8 @@ with CampaignRun("phased.toml") as campaign:
 | [Layout](docs/layout.md) | On-disk layout, artifact overview |
 | [Artifacts](docs/artifacts.md) | JSON schemas, status enums, figures naming |
 | [Lifecycle](docs/lifecycle.md) | Preflight, execute/resume, fingerprint, handoff |
-| [Ledger](docs/ledger.md) | Protocol, run package, REST, claims, aggregation |
+| [Ledger](docs/ledger.md) | Orchestration protocol, run package, REST, claims |
+| [Sink](docs/sink.md) | Telemetry: log, progress, metrics |
 | [Config](docs/config.md) | Run / matrix / campaign TOML schemas |
 | [API](docs/api.md) | Public symbols and usage |
 | [CLI](docs/cli.md) | Argv, roles, examples |

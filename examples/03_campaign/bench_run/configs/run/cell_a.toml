@@ -1,0 +1,8 @@
+[run]
+name = "cell_a"
+fingerprint_keys = ["mode_a", "mode_b"]
+handoff_artifacts = ["model"]
+
+[params]
+mode_a = "x"
+mode_b = "keep"

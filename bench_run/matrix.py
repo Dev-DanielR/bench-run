@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 import tomli_w
 
@@ -32,6 +34,8 @@ from bench_run.figures import write_matrix_figures
 from bench_run.fingerprint import compute_fingerprint
 from bench_run.ledger.local import LocalFsLedger
 from bench_run.run import PreflightCancel, Run
+from bench_run.sink.base import LogLine, ProgressLine, Scope
+from bench_run.sink.local import LocalFsSink
 
 
 def _is_distributed_ledger(ledger: Any) -> bool:
@@ -48,10 +52,18 @@ class MatrixRun:
         ledger: Any | None = None,
         repeats: int | None = None,
         max_failures: int | None = None,
+        log_to_console: bool = True,
+        tty_bar: bool | None = None,
+        sink: Any | None = None,
     ) -> None:
         self.ledger = ledger or LocalFsLedger()
+        self.sink = sink or LocalFsSink(
+            log_to_console=log_to_console,
+            tty_bar=tty_bar,
+        )
         self._cell_ids_filter = list(cell_ids) if cell_ids is not None else None
         self._config_path: Path | None = None
+        self._scope: Scope | None = None
 
         if isinstance(config, dict):
             self._config_data = dict(config)
@@ -111,11 +123,17 @@ class MatrixRun:
     def __exit__(self, *args: Any) -> None:
         return None
 
+    def _bind_scope(self) -> Scope:
+        assert self._id is not None
+        self._scope = Scope(layer="matrix", id=self._id, dir=self._dir)
+        return self._scope
+
     def _open_new(self) -> None:
         mid, path = self.ledger.allocate_matrix_dir(str(self._name))
         self._id = mid
         self._dir = path
         self._status = "running"
+        self._bind_scope()
         now = utc_now_iso()
         dump_toml(self._config_data, path / "config.toml")
         (path / "log.txt").touch()
@@ -170,6 +188,51 @@ class MatrixRun:
         write_manifest(self.dir, self._manifest)
         self.ledger.put_manifest(self.id, self._manifest)
 
+    def write_to_log(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, LogLine(msg))
+
+    def progress_line(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, ProgressLine(msg))
+
+    @contextmanager
+    def progress_bar(
+        self,
+        total: int | None = None,
+        *,
+        title: str | None = None,
+        console: bool | None = None,
+        tty_bar: bool | None = None,
+    ) -> Iterator[Any]:
+        assert self._scope is not None
+        with self.sink.progress_bar(
+            self._scope, total, title=title, tty_bar=tty_bar
+        ) as bar:
+            yield bar
+
+    def _cell_terminal_count(self, cell: dict[str, Any]) -> int:
+        return (
+            len(cell.get("completed_run_ids") or [])
+            + len(cell.get("failed_run_ids") or [])
+            + len(cell.get("cancelled_run_ids") or [])
+        )
+
+    def _progress_done(self) -> int:
+        return sum(self._cell_terminal_count(c) for c in self._manifest.get("cells") or [])
+
+    def _progress_total_target(self) -> int:
+        """Upper bound: target_repeats per active cell (cancellations may finish early)."""
+        n = 0
+        for cell in self._manifest.get("cells") or []:
+            if cell.get("status") == "cancelled" and not cell.get("completed_run_ids"):
+                n += max(1, self._cell_terminal_count(cell))
+                continue
+            n += int(cell.get("target_repeats") or self._repeats)
+        return max(n, self._progress_done())
+
     def _cell_cfg(self, cell_id: str) -> dict[str, Any]:
         for c in self._cells_cfg:
             if c["id"] == cell_id:
@@ -216,9 +279,26 @@ class MatrixRun:
             return self._execute_distributed()
 
         assert runner is not None
-        for cell_entry in self._manifest["cells"]:
-            self._drive_cell(cell_entry, runner)
-            self._save_manifest()
+        self.progress_line(
+            f"matrix start id={self.id} cells={len(self._manifest['cells'])} "
+            f"repeats={self._repeats}"
+        )
+        total = self._progress_total_target()
+        with self.progress_bar(total, title=f"matrix:{self._name}") as bar:
+            done = self._progress_done()
+            for _ in range(done):
+                bar()
+            for cell_entry in self._manifest["cells"]:
+                before = self._cell_terminal_count(cell_entry)
+                self._drive_cell(cell_entry, runner)
+                self._save_manifest()
+                after = self._cell_terminal_count(cell_entry)
+                for _ in range(max(0, after - before)):
+                    bar()
+                self.progress_line(
+                    f"cell={cell_entry['id']} → {cell_entry['status']} "
+                    f"completed={len(cell_entry['completed_run_ids'])}/{self._repeats}"
+                )
 
         self._write_aggregates()
         self._status = "complete"
@@ -227,6 +307,7 @@ class MatrixRun:
         meta["status"] = "complete"
         meta["finished_at"] = now
         write_metadata(self.dir, meta)
+        self.progress_line(f"matrix complete id={self.id}")
         return self
 
     def _all_cells_terminal(self) -> bool:
@@ -308,32 +389,60 @@ class MatrixRun:
             self.ledger.enqueue_run(spec)
 
     def _execute_distributed(self) -> MatrixRun:
+        self.progress_line(
+            f"matrix start (distributed) id={self.id} "
+            f"cells={len(self._manifest['cells'])} repeats={self._repeats}"
+        )
         for cell_entry in self._manifest["cells"]:
             if cell_entry.get("status") in ("ok", "cancelled"):
                 continue
             self._enqueue_cell_shortfall(cell_entry)
             self._save_manifest()
 
-        if not self._all_cells_terminal():
-            # wait; on failure replacements may be enqueued by store
-            while not self._all_cells_terminal():
-                self.ledger.wait_matrix_terminal(self.id, timeout_s=2.0)
-                try:
-                    self._manifest = self.ledger.get_manifest(self.id)
-                    write_manifest(self.dir, self._manifest)
-                except Exception:
-                    pass
-                if self._all_cells_terminal():
-                    break
-        else:
-            # reuse filled everything — still aggregate locally if needed
-            pass
+        total = self._progress_total_target()
+        last_line_at = 0.0
+        with self.progress_bar(total, title=f"matrix:{self._name}") as bar:
+            reported = 0
+            done = self._progress_done()
+            while reported < done:
+                bar()
+                reported += 1
+
+            if not self._all_cells_terminal():
+                while not self._all_cells_terminal():
+                    self.ledger.wait_matrix_terminal(self.id, timeout_s=2.0)
+                    try:
+                        self._manifest = self.ledger.get_manifest(self.id)
+                        write_manifest(self.dir, self._manifest)
+                    except Exception:
+                        pass
+                    done = self._progress_done()
+                    while reported < done:
+                        bar()
+                        reported += 1
+                    now = time.monotonic()
+                    if now - last_line_at >= 1.0:
+                        last_line_at = now
+                        cells = self._manifest.get("cells") or []
+                        ok_n = sum(1 for c in cells if c.get("status") == "ok")
+                        self.progress_line(
+                            f"waiting cells_ok={ok_n}/{len(cells)} "
+                            f"runs_done={done}/{total}"
+                        )
+                    if self._all_cells_terminal():
+                        break
 
         try:
             self._manifest = self.ledger.get_manifest(self.id)
             write_manifest(self.dir, self._manifest)
         except Exception:
             pass
+
+        for cell_entry in self._manifest.get("cells") or []:
+            self.progress_line(
+                f"cell={cell_entry['id']} → {cell_entry.get('status')} "
+                f"completed={len(cell_entry.get('completed_run_ids') or [])}/{self._repeats}"
+            )
 
         if not (self.dir / "stats.json").is_file():
             self._write_aggregates()
@@ -346,9 +455,14 @@ class MatrixRun:
         write_metadata(self.dir, meta)
         if hasattr(self.ledger, "signal_matrix_terminal"):
             self.ledger.signal_matrix_terminal(self.id)
+        self.progress_line(f"matrix complete id={self.id}")
         return self
 
-    def _drive_cell(self, cell_entry: dict[str, Any], runner: Callable[[Run], None]) -> None:
+    def _drive_cell(
+        self,
+        cell_entry: dict[str, Any],
+        runner: Callable[[Run], None],
+    ) -> None:
         cell_id = cell_entry["id"]
         cell_cfg = self._cell_cfg(cell_id)
         fp, run_data, params, _keys = self._cell_fingerprint(cell_cfg)
@@ -372,6 +486,11 @@ class MatrixRun:
 
         if len(cell_entry["completed_run_ids"]) >= self._repeats:
             cell_entry["status"] = "ok"
+            if cell_entry.get("reused_run_ids"):
+                self.progress_line(
+                    f"cell={cell_id} reuse filled "
+                    f"completed={len(cell_entry['completed_run_ids'])}/{self._repeats}"
+                )
             return
 
         cell_entry["status"] = "running"
@@ -393,6 +512,7 @@ class MatrixRun:
                 run_data,
                 name=(run_data.get("run") or {}).get("name") or cell_entry["config_stem"],
                 ledger=self.ledger,
+                sink=self.sink.with_options(tty_bar=False),
                 parent=parent,
                 params_overlay=dict(cell_cfg.get("params") or {}),
                 fingerprint=fp,
@@ -405,6 +525,9 @@ class MatrixRun:
                     cell_entry["cancelled_run_ids"].append(run.id)
                     cell_entry["status"] = "cancelled"
                     run.__exit__(PreflightCancel, PreflightCancel(), None)
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status=cancelled"
+                    )
                     break
                 try:
                     runner(run)
@@ -413,21 +536,40 @@ class MatrixRun:
                     if run.status == "cancelled":
                         cell_entry["cancelled_run_ids"].append(run.id)
                         cell_entry["status"] = "cancelled"
+                        self.progress_line(
+                            f"cell={cell_id} run={run.id} status=cancelled"
+                        )
                         break
                     cell_entry["failed_run_ids"].append(run.id)
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status=failed"
+                    )
                     self._save_manifest()
                     continue
                 run.__exit__(None, None, None)
                 if run.status == "complete":
                     cell_entry["completed_run_ids"].append(run.id)
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status=complete "
+                        f"completed={len(cell_entry['completed_run_ids'])}/{self._repeats}"
+                    )
                 elif run.status == "cancelled":
                     cell_entry["cancelled_run_ids"].append(run.id)
                     cell_entry["status"] = "cancelled"
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status=cancelled"
+                    )
                     break
                 elif run.status == "failed":
                     cell_entry["failed_run_ids"].append(run.id)
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status=failed"
+                    )
                 else:
                     cell_entry["failed_run_ids"].append(run.id)
+                    self.progress_line(
+                        f"cell={cell_id} run={run.id} status={run.status}"
+                    )
             except PreflightCancel:
                 cell_entry["status"] = "cancelled"
                 if run.id not in cell_entry["cancelled_run_ids"]:
@@ -499,9 +641,26 @@ class MatrixRun:
         return compare
 
     @classmethod
-    def resume(cls, dir: str | Path, *, ledger: Any | None = None) -> MatrixRun:
+    def resume(
+        cls,
+        dir: str | Path,
+        *,
+        ledger: Any | None = None,
+        sink: Any | None = None,
+        log_to_console: bool = True,
+        tty_bar: bool | None = None,
+    ) -> MatrixRun:
         d = Path(dir)
         meta = read_metadata(d)
+
+        def _finish(m: MatrixRun) -> MatrixRun:
+            m.sink = sink or LocalFsSink(
+                log_to_console=log_to_console,
+                tty_bar=tty_bar,
+            )
+            m._bind_scope()
+            return m
+
         if meta.get("status") in ("complete", "cancelled"):
             m = cls.__new__(cls)
             m.ledger = ledger or LocalFsLedger()
@@ -521,7 +680,7 @@ class MatrixRun:
             m._cell_ids_filter = None
             m._config_path = d / "config.toml"
             m._resuming = True
-            return m
+            return _finish(m)
 
         m = cls.__new__(cls)
         m.ledger = ledger or LocalFsLedger()
@@ -541,7 +700,6 @@ class MatrixRun:
         m._cell_ids_filter = None
         m._config_path = d / "config.toml"
         m._resuming = True
-        # mark metadata running again
         meta["status"] = "running"
         write_metadata(d, meta)
-        return m
+        return _finish(m)

@@ -1,10 +1,11 @@
-"""CampaignRun: phases, selectWinner, handoff."""
+"""CampaignRun: phases, select_winner, handoff."""
 
 from __future__ import annotations
 
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from bench_run.artifacts import (
     read_json,
@@ -27,6 +28,8 @@ from bench_run.config import (
 from bench_run.ledger.local import LocalFsLedger
 from bench_run.matrix import MatrixRun
 from bench_run.run import PreflightCancel, Run
+from bench_run.sink.base import LogLine, ProgressLine, Scope
+from bench_run.sink.local import LocalFsSink
 
 
 class CampaignRun:
@@ -37,8 +40,16 @@ class CampaignRun:
         name: str | None = None,
         phase_ids: list[int | str] | None = None,
         ledger: Any | None = None,
+        log_to_console: bool = True,
+        tty_bar: bool | None = None,
+        sink: Any | None = None,
     ) -> None:
         self.ledger = ledger or LocalFsLedger()
+        self.sink = sink or LocalFsSink(
+            log_to_console=log_to_console,
+            tty_bar=tty_bar,
+        )
+        self._scope: Scope | None = None
         self._phase_ids_filter = (
             {str(p) for p in phase_ids} if phase_ids is not None else None
         )
@@ -96,11 +107,17 @@ class CampaignRun:
     def __exit__(self, *args: Any) -> None:
         return None
 
+    def _bind_scope(self) -> Scope:
+        assert self._id is not None
+        self._scope = Scope(layer="campaign", id=self._id, dir=self._dir)
+        return self._scope
+
     def _open_new(self) -> None:
         cid, path = self.ledger.allocate_campaign_dir(str(self._name))
         self._id = cid
         self._dir = path
         self._status = "running"
+        self._bind_scope()
         now = utc_now_iso()
         dump_toml(self._config_data, path / "config.toml")
         (path / "log.txt").touch()
@@ -163,6 +180,31 @@ class CampaignRun:
         write_json(self.dir / "winners.json", self._winners)
         self.ledger.put_winners(self.id, self._winners)
 
+    def write_to_log(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, LogLine(msg))
+
+    def progress_line(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, ProgressLine(msg))
+
+    @contextmanager
+    def progress_bar(
+        self,
+        total: int | None = None,
+        *,
+        title: str | None = None,
+        console: bool | None = None,
+        tty_bar: bool | None = None,
+    ) -> Iterator[Any]:
+        assert self._scope is not None
+        with self.sink.progress_bar(
+            self._scope, total, title=title, tty_bar=tty_bar
+        ) as bar:
+            yield bar
+
     def execute(
         self,
         runner: Callable[[Run], None] | None = None,
@@ -178,46 +220,68 @@ class CampaignRun:
 
         halted = False
         halt_status = "complete"
+        active_phases = [
+            (pe, pc)
+            for pe, pc in zip(self._manifest["phases"], self._phases_cfg)
+            if pe["status"] not in ("skipped", "ok")
+        ]
+        self.progress_line(
+            f"campaign start id={self.id} phases={len(active_phases)}"
+        )
 
-        for phase_entry, phase_cfg in zip(self._manifest["phases"], self._phases_cfg):
-            if phase_entry["status"] == "skipped":
-                continue
-            if phase_entry["status"] == "ok":
-                continue
-            if halted:
-                break
-
-            phase_entry["status"] = "running"
-            self._save_manifest()
-
-            try:
-                result = self._run_phase(
-                    phase_entry, phase_cfg, runner, distributed=use_dist
-                )
-            except PreflightCancel:
-                phase_entry["status"] = "cancelled"
-                self._save_manifest()
-                halted = True
-                halt_status = "cancelled"
-                break
-
-            if result == "cancelled":
-                phase_entry["status"] = "cancelled"
-                self._save_manifest()
-                halted = True
-                halt_status = "cancelled"
-                break
-            if result == "failed":
-                phase_entry["status"] = "failed"
-                self._save_manifest()
-                if not self._continue_on_fail:
-                    halted = True
-                    halt_status = "failed"
+        with self.progress_bar(
+            len(active_phases) or None,
+            title=f"campaign:{self._name}",
+        ) as bar:
+            for phase_entry, phase_cfg in zip(
+                self._manifest["phases"], self._phases_cfg
+            ):
+                if phase_entry["status"] == "skipped":
+                    continue
+                if phase_entry["status"] == "ok":
+                    continue
+                if halted:
                     break
-                continue
-            # ok
-            phase_entry["status"] = "ok"
-            self._save_manifest()
+
+                phase_entry["status"] = "running"
+                self._save_manifest()
+                self.progress_line(f"phase={phase_entry['id']} start")
+
+                try:
+                    result = self._run_phase(
+                        phase_entry, phase_cfg, runner, distributed=use_dist
+                    )
+                except PreflightCancel:
+                    phase_entry["status"] = "cancelled"
+                    self._save_manifest()
+                    self.progress_line(f"phase={phase_entry['id']} → cancelled")
+                    bar()
+                    halted = True
+                    halt_status = "cancelled"
+                    break
+
+                if result == "cancelled":
+                    phase_entry["status"] = "cancelled"
+                    self._save_manifest()
+                    self.progress_line(f"phase={phase_entry['id']} → cancelled")
+                    bar()
+                    halted = True
+                    halt_status = "cancelled"
+                    break
+                if result == "failed":
+                    phase_entry["status"] = "failed"
+                    self._save_manifest()
+                    self.progress_line(f"phase={phase_entry['id']} → failed")
+                    bar()
+                    if not self._continue_on_fail:
+                        halted = True
+                        halt_status = "failed"
+                        break
+                    continue
+                phase_entry["status"] = "ok"
+                self._save_manifest()
+                self.progress_line(f"phase={phase_entry['id']} → ok")
+                bar()
 
         self._status = halt_status if halted else "complete"
         now = utc_now_iso()
@@ -227,6 +291,7 @@ class CampaignRun:
         write_metadata(self.dir, meta)
         self._save_handoff()
         self._save_winners()
+        self.progress_line(f"campaign {self._status} id={self.id}")
         return self
 
     def _run_phase(
@@ -260,6 +325,7 @@ class CampaignRun:
             mdata,
             name=(mdata.get("matrix") or {}).get("name") or mpath.stem,
             ledger=self.ledger,
+            sink=self.sink.with_options(tty_bar=False),
             repeats=repeats,
             max_failures=max_failures,
         )
@@ -318,7 +384,7 @@ class CampaignRun:
         if not all_ok and any_failed:
             pass
 
-        winner = self.selectWinner(matrix, phase_cfg)
+        winner = self.select_winner(matrix, phase_cfg)
         if winner is None:
             return "failed"
 
@@ -474,7 +540,7 @@ class CampaignRun:
                 out[stem] = p
         return out
 
-    def selectWinner(
+    def select_winner(
         self,
         matrix: MatrixRun,
         phase_cfg: dict[str, Any],
@@ -600,7 +666,15 @@ class CampaignRun:
         self._save_handoff()
 
     @classmethod
-    def resume(cls, dir: str | Path, *, ledger: Any | None = None) -> CampaignRun:
+    def resume(
+        cls,
+        dir: str | Path,
+        *,
+        ledger: Any | None = None,
+        sink: Any | None = None,
+        log_to_console: bool = True,
+        tty_bar: bool | None = None,
+    ) -> CampaignRun:
         d = Path(dir)
         meta = read_metadata(d)
         c = cls.__new__(cls)
@@ -629,6 +703,11 @@ class CampaignRun:
         c._winners = read_json(winners_path) if winners_path.is_file() else {"phases": {}}
         c._resuming = True
         c._config_path = d / "config.toml"
+        c.sink = sink or LocalFsSink(
+            log_to_console=log_to_console,
+            tty_bar=tty_bar,
+        )
+        c._bind_scope()
         if c._status not in ("complete", "cancelled"):
             c._status = "running"
             meta["status"] = "running"

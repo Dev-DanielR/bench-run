@@ -34,7 +34,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 | Item | Detail |
 |---|---|
 | Files | `bench_run/run.py`, `bench_run/ledger/{base,local}.py`, `artifacts.py` (metadata/metrics IO) |
-| Deliver | `Ledger` protocol methods used by Run; `Run` context manager; preflight; metrics/items; `output/`/`pinArtifact`; complete/fail/cancel; stamp dirs |
+| Deliver | `Ledger` protocol methods used by Run; `Run` context manager; preflight; metrics/items; `output/`/`pin_artifact`; complete/fail/cancel; stamp dirs |
 | Test | Temp dir Run happy path + preflight cancel + `__exit__` finalize |
 
 ### PR3 — MatrixRun local
@@ -50,7 +50,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 | Item | Detail |
 |---|---|
 | Files | `campaign.py` |
-| Deliver | Phase loop, `selectWinner`, handoff params + file copy under `handoff/<phase_id>/`, `continue_on_fail`, preflight-cancel halt, resume restores handoff |
+| Deliver | Phase loop, `select_winner`, handoff params + file copy under `handoff/<phase_id>/`, `continue_on_fail`, preflight-cancel halt, resume restores handoff |
 | Test | 2-phase campaign with handoff key merge and artifact file presence |
 
 ### PR5 — CLI `main` local paths

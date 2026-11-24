@@ -1,0 +1,8 @@
+[run]
+name = "missing_data_cfg"
+
+[data]
+root = "bench_run/data/does_not_exist"
+
+[params]
+label = "bad"

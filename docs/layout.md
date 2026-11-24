@@ -56,6 +56,6 @@ Exact JSON shapes, status enums, and figure filenames: [Artifacts](artifacts.md)
 
 Flow: each Run writes `metrics.json` → matrix aggregates into `stats.json` → builds `compare.json` → writes figures. Locally the in-process driver does this under `results/`. In distributed mode workers push run packages; the **coordinator** driver aggregates matrix stats/compare/figures. `MatrixRun.compare()` rebuilds compare and figures from existing stats (local ledger).
 
-- `addMetric` → `run`; `addItemMetric` / `addItemMetrics` → `items`
+- `add_metric` → `run`; `add_item_metric` / `add_item_metrics` → `items`
 - Winner selection and charts read **run-level** numeric scalars (mean±std across repeats)
 - Fingerprints: [Lifecycle — Fingerprint](lifecycle.md#fingerprint)

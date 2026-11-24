@@ -7,7 +7,7 @@ bench_run/
   __init__.py          # exports: Run, MatrixRun, CampaignRun, main, PreflightCancel, resolve*ConfigPath
   run.py               # Run context manager, metrics helpers, preflight, pins
   matrix.py            # MatrixRun: shortfall, stats, compare, figures drive
-  campaign.py          # CampaignRun: phases, selectWinner, handoff
+  campaign.py          # CampaignRun: phases, select_winner, handoff
   main.py              # argv parse → local drive | coordinator serve(+drive) | worker claim loop
   config.py            # TOML load, path resolve, classify experiment vs execution
   fingerprint.py       # canonical payload + sha256
@@ -16,9 +16,14 @@ bench_run/
   worker.py            # claim_run loop: RunSpec → preflight → runner → push
   ledger/
     __init__.py
-    base.py            # Ledger Protocol
+    base.py            # Ledger Protocol (orchestration)
     local.py           # LocalFsLedger (filesystem)
     coordinator.py     # CoordinatorLedger HTTP client (httpx)
+  sink/
+    __init__.py
+    base.py            # Sink Protocol + Scope/events (telemetry)
+    local.py           # LocalFsSink
+    coordinator.py     # CoordinatorSink (worker buffer)
   server/              # coordinator only
     __init__.py
     app.py             # Starlette app + hosts MatrixRun/CampaignRun driver
@@ -38,6 +43,9 @@ bench_run/
 | `artifacts.py` | On-disk JSON artifact IO |
 | `figures.py` | Best-effort matplotlib Agg charts |
 | `worker.py` | Worker claim/heartbeat/push loop |
+| `ledger/` | Orchestration: claims, outputs, manifests, stats, packages |
+| `sink/` | Telemetry: log, progress, metrics |
+
 | `ledger.base` | Ledger protocol |
 | `ledger.local` | Local filesystem ledger |
 | `ledger.coordinator` | HTTP client ledger for workers |

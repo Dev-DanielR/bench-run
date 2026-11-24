@@ -71,6 +71,7 @@ def build_run_from_spec(
     spec: RunSpec,
     ledger: CoordinatorLedger,
     *,
+    sink: Any | None = None,
     log_to_console: bool = False,
 ) -> Run:
     """Create a Run bound to the claim's run_id and local working dir."""
@@ -120,11 +121,13 @@ def build_run_from_spec(
 
     handoff_paths = materialize_handoff(ledger, spec, path)
 
+    run_sink = sink or ledger.sink
     run = Run(
         config_data,
         name=(config_data.get("run") or {}).get("name") or spec.get("config_stem"),
         log_to_console=log_to_console,
         ledger=ledger,
+        sink=run_sink,
         parent=spec.get("parent"),
         fingerprint=spec.get("fingerprint"),
         handoff_artifacts=handoff_paths or None,
@@ -133,7 +136,7 @@ def build_run_from_spec(
     run._dir = path
     run._status = "running"
     run._entered = True
-    run._log_fp = (path / "log.txt").open("a", encoding="utf-8")
+    run._bind_scope()
     run.handoff_artifacts = handoff_paths
     return run
 
@@ -178,13 +181,24 @@ def execute_claimed_run(
             status = "failed"
     finally:
         stop.set()
-        run._close_log()
         if claim_id:
             try:
                 ledger.release_claim(claim_id)
             except Exception:
                 pass
     return status
+
+
+def _health_ok(health_url: str | None) -> bool:
+    if not health_url:
+        return True
+    try:
+        import httpx
+
+        r = httpx.get(health_url, timeout=2.0)
+        return r.status_code == 200
+    except Exception:
+        return False
 
 
 def worker_loop(
@@ -198,24 +212,87 @@ def worker_loop(
     stop_event: threading.Event | None = None,
     max_claims: int | None = None,
     log_to_console: bool = False,
+    until_done: bool = False,
+    idle_polls: int = 5,
+    health_url: str | None = None,
 ) -> int:
-    """Claim until stop_event or max_claims. Returns number of claims executed."""
+    """Claim loop.
+
+    Without until_done: returns number of claims executed (legacy).
+    With until_done: returns process exit code (0 idle exit, 4 coord down).
+    """
     wid = worker_id or default_worker_id()
     stop = stop_event or threading.Event()
     n = 0
+    empty_streak = 0
+    health_fail_streak = 0
     while not stop.is_set():
         if max_claims is not None and n >= max_claims:
             break
         try:
             spec = ledger.claim_run(worker_id=wid, lease_s=lease_s, filters=filters)
         except Exception:
+            if until_done:
+                # Coord --until-done often closes right after the last package;
+                # treat that as clean if we already ran work.
+                if n > 0:
+                    if log_to_console:
+                        print(
+                            f"{utc_now_iso()} worker: coordinator closed after work; exiting",
+                            flush=True,
+                        )
+                    return 0
+                health_fail_streak += 1
+                if health_fail_streak >= idle_polls:
+                    if log_to_console:
+                        print(
+                            f"{utc_now_iso()} worker: coordinator unreachable; exiting",
+                            flush=True,
+                        )
+                    return 4
             if stop.wait(poll_s):
                 break
             continue
         if spec is None:
+            empty_streak += 1
+            if until_done:
+                if not _health_ok(health_url):
+                    if n > 0 or empty_streak >= idle_polls:
+                        if log_to_console:
+                            print(
+                                f"{utc_now_iso()} worker: coordinator down after idle/work; exiting",
+                                flush=True,
+                            )
+                        return 0 if n > 0 else 4
+                    health_fail_streak += 1
+                    if health_fail_streak >= idle_polls:
+                        if log_to_console:
+                            print(
+                                f"{utc_now_iso()} worker: coordinator down; exiting",
+                                flush=True,
+                            )
+                        return 4
+                else:
+                    health_fail_streak = 0
+                if empty_streak >= idle_polls:
+                    if log_to_console:
+                        print(
+                            f"{utc_now_iso()} worker: idle after {idle_polls} empty polls; exiting",
+                            flush=True,
+                        )
+                    return 0
             if stop.wait(poll_s):
                 break
             continue
-        execute_claimed_run(spec, runner, ledger, log_to_console=log_to_console)
+        empty_streak = 0
+        health_fail_streak = 0
+        rid = spec.get("run_id")
+        if log_to_console:
+            print(f"{utc_now_iso()} worker: claim {rid}", flush=True)
+        status = execute_claimed_run(
+            spec, runner, ledger, log_to_console=log_to_console
+        )
+        if log_to_console:
+            print(f"{utc_now_iso()} worker: {status} {rid}", flush=True)
         n += 1
-    return n
+    return 0 if until_done else n

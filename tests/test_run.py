@@ -23,9 +23,9 @@ def test_run_happy_path(tmp_path):
     }
     with Run(cfg) as run:
         run.preflight()
-        run.addMetric("accuracy", 0.8)
-        run.writeOutput("out.txt", "hello")
-        run.pinArtifact("out", "output/out.txt")
+        run.add_metric("accuracy", 0.8)
+        run.write_output("out.txt", "hello")
+        run.pin_artifact("out", "output/out.txt")
     assert run.status == "complete"
     meta = read_metadata(run.dir)
     assert meta["status"] == "complete"
@@ -66,7 +66,7 @@ def test_preflight_cancel_exception(tmp_path):
 def test_exit_completes_if_still_running(tmp_path):
     cfg = {"run": {"name": "auto"}, "params": {}}
     with Run(cfg) as run:
-        run.addMetric("x", 1)
+        run.add_metric("x", 1)
     assert run.status == "complete"
 
 

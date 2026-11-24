@@ -1,0 +1,11 @@
+[matrix]
+name = "stage2"
+repeats = 1
+
+[[matrix.cells]]
+id = "a"
+config = "cell_a.toml"
+
+[[matrix.cells]]
+id = "b"
+config = "cell_b.toml"

@@ -1,0 +1,20 @@
+[campaign]
+name = "phased"
+repeats = 1
+continue_on_fail = false
+
+[[campaign.phases]]
+id = 1
+name = "stage_a"
+matrix = "stage1.toml"
+winner_metric = "accuracy"
+winner_direction = "max"
+handoff_keys = ["mode_a"]
+
+[[campaign.phases]]
+id = 2
+name = "stage_b"
+matrix = "stage2.toml"
+winner_metric = "accuracy"
+winner_direction = "max"
+handoff_keys = ["mode_a"]

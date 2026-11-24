@@ -1,0 +1,6 @@
+[run]
+name = "baseline"
+fingerprint_keys = ["seed"]
+
+[params]
+seed = 1

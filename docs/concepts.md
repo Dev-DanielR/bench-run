@@ -17,7 +17,7 @@ sequenceDiagram
     end
     Matrix->>Matrix: stats / compare / figures
     Matrix-->>Camp: matrix terminal
-    Camp->>Camp: selectWinner + handoff → phase N+1
+    Camp->>Camp: select_winner + handoff → phase N+1
 ```
 
 | Layer | Role |
@@ -30,34 +30,40 @@ sequenceDiagram
 
 The library owns directories, lifecycle, fingerprint reuse, stats/compare/figures, and campaign hand-off. The caller owns the experiment body.
 
-A **runner** is `runner(run) -> None`. It writes metrics under `metrics.run` / `metrics.items` (via `addMetric` / `addItemMetric(s)`), writes outputs under `output/`, and raises on hard failure. Pass the runner into `execute` or `main`; the library does not register named entrypoints.
+A **runner** is `runner(run) -> None`. It writes metrics under `metrics.run` / `metrics.items` (via `add_metric` / `add_item_metric(s)`), writes outputs under `output/`, and raises on hard failure. Pass the runner into `execute` or `main`; the library does not register named entrypoints.
 
 - Single `Run`: use as a context manager; call the runner (or inline the body) yourself.
 - **Local** `MatrixRun.execute(runner)` / `CampaignRun.execute(runner)`: orchestration in-process; creates each shortfall `Run`, runs `Run.preflight`, then `runner(run)`.
 - **Distributed:** the **coordinator** drives `MatrixRun` / `CampaignRun` (same modules, shared ledger). **Workers** only claim and execute individual `Run`s — they do not run matrix/campaign `execute`.
 
-## Ledger injection
+## Ledger + Sink injection
 
-`Run` methods (`addMetric`, `writeOutput`, `writeToLog`, `complete` / `fail`, …) and matrix/campaign orchestration talk to one **Ledger** protocol. The runner never branches on role or network.
+- **Ledger** — orchestration: claims, outputs, manifests, stats/compare/figures, winners/handoff, complete/fail packages.
+- **Sink** — telemetry: `log.txt`, progress bars/lines, `metrics.json` (see [sink.md](sink.md)).
+
+`Run` helpers route accordingly (`add_metric` / `write_to_log` → Sink; `write_output` / `complete` → Ledger). The runner never branches on role or network.
 
 ```mermaid
 sequenceDiagram
     participant Driver as Matrix / Campaign driver
     participant Ledger
+    participant Sink
     participant Worker
     participant Runner
 
-    Note over Driver,Ledger: Local: LocalFsLedger in-process<br/>Distributed: server store on coordinator
+    Note over Driver,Sink: Local: LocalFsLedger + LocalFsSink<br/>Distributed: store + CoordinatorSink on worker
     Driver->>Ledger: reuse / enqueue RunSpecs
     alt local
         Driver->>Runner: runner(run) inline
-        Runner->>Ledger: metrics / complete
+        Runner->>Sink: metrics / log
+        Runner->>Ledger: output / complete
     else distributed
         Worker->>Ledger: claim_run
         Ledger-->>Worker: RunSpec
         Worker->>Runner: runner(run)
-        Runner->>Worker: addMetric / writeOutput
-        Worker->>Ledger: push package
+        Runner->>Sink: add_metric / write_to_log
+        Runner->>Ledger: write_output
+        Worker->>Ledger: push package from Sink + outputs
     end
     Driver->>Ledger: stats / compare / handoff
 ```

@@ -46,7 +46,7 @@ def test_two_cell_repeats(tmp_path):
     dump_toml(matrix_cfg, tmp_path / "bench_run" / "configs" / "matrix" / "factor_a.toml")
 
     def runner(run: Run) -> None:
-        run.addMetric("accuracy", 0.9 if run.params.get("mode") == "on" else 0.5)
+        run.add_metric("accuracy", 0.9 if run.params.get("mode") == "on" else 0.5)
 
     with MatrixRun("factor_a.toml") as matrix:
         matrix.execute(runner)
@@ -86,7 +86,7 @@ def test_failure_cap(tmp_path):
     def runner(run: Run) -> None:
         if run.params.get("mode") == "on":
             raise RuntimeError("always fail")
-        run.addMetric("accuracy", 0.7)
+        run.add_metric("accuracy", 0.7)
 
     matrix = MatrixRun("flaky.toml")
     matrix.execute(runner)
@@ -103,7 +103,7 @@ def test_reuse_fills_repeats(tmp_path):
     _write_run_configs(tmp_path)
     # seed completed runs
     def seed(run: Run) -> None:
-        run.addMetric("accuracy", 1.0)
+        run.add_metric("accuracy", 1.0)
 
     cfg = {
         "run": {"name": "on_cfg", "fingerprint_keys": ["mode"]},
@@ -127,7 +127,7 @@ def test_reuse_fills_repeats(tmp_path):
 
     def runner(run: Run) -> None:
         calls["n"] += 1
-        run.addMetric("accuracy", 0.0)
+        run.add_metric("accuracy", 0.0)
 
     MatrixRun("reuse_m.toml").execute(runner)
     assert calls["n"] == 0

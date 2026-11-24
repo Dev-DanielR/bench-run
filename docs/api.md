@@ -4,7 +4,7 @@
 from bench_run import Run, MatrixRun, CampaignRun, main, PreflightCancel
 
 def runner(run: Run) -> None:
-    run.addMetric("accuracy", 0.8)
+    run.add_metric("accuracy", 0.8)
 
 with Run("baseline.toml") as run:
     run.preflight()
@@ -36,7 +36,9 @@ Run(
     *,
     name: str | None = None,
     log_to_console: bool = True,
+    tty_bar: bool | None = None,
     ledger: Ledger | None = None,
+    sink: Sink | None = None,
     preflight_hook: Callable[[Run], bool | None] | None = None,
     parent: dict | None = None,
     params_overlay: dict | None = None,
@@ -49,8 +51,9 @@ Run(
 |---|---|
 | `config` | Path, stem, or already-loaded dict |
 | `name` | Overrides `[run].name` when set |
-| `log_to_console` | Mirror log lines to stdout |
-| `ledger` | Injected ledger; default `LocalFsLedger` |
+| `log_to_console` / `tty_bar` | Used when `sink` is omitted (builds `LocalFsSink`) |
+| `ledger` | Orchestration; default `LocalFsLedger` |
+| `sink` | Telemetry; default `LocalFsSink` |
 | `preflight_hook` | Optional; return `False` or raise `PreflightCancel` to cancel |
 | `parent` | Parent matrix/campaign linkage written into metadata |
 | `params_overlay` | Merged onto `[params]` (matrix cell / handoff) |
@@ -72,16 +75,16 @@ Run(
 
 | Method | Notes |
 |---|---|
-| `preflight()` | Structural `checkConfig` + optional `preflight_hook`; cancel → `PreflightCancel` / status `cancelled` |
-| `checkConfig()` | Structural defaults; overridable |
-| `addMetric(key, value)` | Write scalar into `metrics.run` |
-| `addItemMetric(item_id, key, value)` | Write into `metrics.items[item_id]` |
-| `addItemMetrics(item_id, mapping)` | Bulk item metrics |
-| `getMetrics()` | Current metrics dict |
-| `writeToLog(msg)` | Append to run log |
-| `outputPath(*parts)` | Path under `run_dir/output/` |
-| `writeOutput(name, data)` | Write bytes/text under `output/` |
-| `pinArtifact(stem, path)` | Record pin in `metadata.pins` (path relative to run dir) |
+| `preflight()` | Structural `check_config` + optional `preflight_hook`; cancel → `PreflightCancel` / status `cancelled` |
+| `check_config()` | Structural defaults; overridable |
+| `add_metric(key, value)` | Write scalar into `metrics.run` |
+| `add_item_metric(item_id, key, value)` | Write into `metrics.items[item_id]` |
+| `add_item_metrics(item_id, mapping)` | Bulk item metrics |
+| `get_metrics()` | Current metrics dict |
+| `write_to_log(msg)` | Append to run log |
+| `output_path(*parts)` | Path under `run_dir/output/` |
+| `write_output(name, data)` | Write bytes/text under `output/` |
+| `pin_artifact(stem, path)` | Record pin in `metadata.pins` (path relative to run dir) |
 | `complete()` | Mark complete; flush artifacts |
 | `fail(exc=None)` | Mark failed |
 | `__enter__` / `__exit__` | Context manager; `__exit__` finalizes if still `running` |
@@ -101,6 +104,7 @@ MatrixRun(
     name: str | None = None,
     cell_ids: list[str] | None = None,
     ledger: Ledger | None = None,
+    sink: Sink | None = None,
     repeats: int | None = None,
     max_failures: int | None = None,
 )
@@ -130,6 +134,7 @@ CampaignRun(
     name: str | None = None,
     phase_ids: list[int | str] | None = None,
     ledger: Ledger | None = None,
+    sink: Sink | None = None,
 )
 ```
 
@@ -141,9 +146,9 @@ CampaignRun(
 
 | Method | Notes |
 |---|---|
-| `execute(runner)` | Phase loop: apply handoff → drive child matrix → `selectWinner` → merge handoff |
+| `execute(runner)` | Phase loop: apply handoff → drive child matrix → `select_winner` → merge handoff |
 | `resume(cls, dir)` | Classmethod: reopen campaign dir; restore `handoff.json`; skip ok phases |
-| `selectWinner(...)` | Internal: pick winner cell from stats (or `winner_cell` / `force_cell`) |
+| `select_winner(...)` | Internal: pick winner cell from stats (or `winner_cell` / `force_cell`) |
 
 ## `main`
 

@@ -15,6 +15,9 @@ python my_bench.py --config <name|path> [--config <name|path> ...] [options]
 | `--cell-id <id>` (repeatable) | optional | Matrix cell filter (local driver or submit) |
 | `--phase-id <id>` (repeatable) | optional | Campaign phase filter (local driver or submit); match phase `id` as string |
 | `--no-console-log` | optional | Disable console log mirror |
+| `--no-progress` | optional | Disable TTY progress bars (status lines still written to layer `log.txt`) |
+| `--until-done` | coordinator / worker | Exit when the driven experiment finishes; worker also exits on idle empty claims or coordinator down |
+| `--idle-polls N` | worker + `--until-done` | Consecutive empty claims before idle exit (default `5`) |
 
 ## Classification
 
@@ -51,7 +54,9 @@ Wrong count or ambiguous sections → exit code **1** with message on stderr.
 | `--config EXP` (no `--role`) | Drive `Run` / `MatrixRun` / `CampaignRun` **locally**; `LocalFsLedger`; calls `runner` for each Run |
 | `--role coordinator --config EXEC` | Bind ledger server (uvicorn); wait for submits (API or later CLI) |
 | `--role coordinator --config EXEC --config EXP` | Bind ledger server **and** drive that matrix/campaign on the coordinator |
+| `--role coordinator … --until-done` | Same, then shut down the server when the driven experiment is terminal (requires EXP or `--resume`) |
 | `--role worker --config EXEC` | Claim loop: fetch `RunSpec`, `preflight`, `runner(run)`, push package; **no** matrix/campaign `execute` |
+| `--role worker … --until-done` | Claim until idle (`--idle-polls` empty claims) or coordinator `/health` fails → exit |
 | `--resume DIR` (no `--role`) | Local resume from `DIR` (see [Lifecycle — Resume](lifecycle.md#resume)) |
 | `--role coordinator --config EXEC --resume DIR` | `POST /v1/resume` against local server (or drive resume in-process) |
 
@@ -102,4 +107,16 @@ python my_bench.py --role coordinator --config lab.toml --config phased.toml
 
 # Worker (runner from this script; work from claims)
 python my_bench.py --role worker --config lab.toml
+
+# Distributed until both sides exit on their own
+python my_bench.py --role coordinator --config lab.toml --config factor_a.toml --until-done
+python my_bench.py --role worker --config lab.toml --until-done
 ```
+
+## Progress / telemetry
+
+Layers expose `write_to_log`, `progress_line`, and `progress_bar`; all go through a **Sink** ([sink.md](sink.md)):
+
+- Status lines always append to that layer’s `log.txt` (ISO timestamp prefix).
+- On a TTY, `progress_bar` uses [`alive-progress`](https://pypi.org/project/alive-progress/); `--no-progress` disables bars only.
+- `--no-console-log` suppresses console mirrors; log files still receive lines.

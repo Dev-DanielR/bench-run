@@ -1,0 +1,10 @@
+[coordinator]
+name = "lab_local"
+bind = "127.0.0.1:8765"
+
+[worker]
+url = "http://127.0.0.1:8765"
+
+[worker.claim]
+poll_s = 1.0
+lease_s = 120

@@ -155,7 +155,7 @@ stateDiagram-v2
 }
 ```
 
-- Keys are artifact stems (from `pinArtifact` / `[run].handoff_artifacts`).
+- Keys are artifact stems (from `pin_artifact` / `[run].handoff_artifacts`).
 - Values are paths relative to the run result directory.
 - Campaign handoff copies pinned stems from the winning run into `handoff.json` / on-disk handoff artifacts.
 

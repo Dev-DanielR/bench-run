@@ -39,9 +39,9 @@ url = "http://coordinator.example:8443"
 
 ## Process model
 
-- **Coordinator:** one OS process; uvicorn with **1 worker** (in-process `MatrixRun`/`CampaignRun` driver shares the ledger store memory/FS). Starlette app mounts REST + starts driver tasks on submit.
-- **Worker:** one process per machine/GPU slot; single-threaded claim loop (heartbeat on a daemon thread or `asyncio` task).
-- **Local:** no server; `LocalFsLedger` only.
+- **Coordinator:** one OS process; uvicorn with **1 worker** (in-process `MatrixRun`/`CampaignRun` driver shares the ledger store memory/FS). Starlette app mounts REST + starts driver tasks on submit. With `--until-done` (+ experiment config), the server exits when that matrix/campaign is terminal.
+- **Worker:** one process per machine/GPU slot; single-threaded claim loop (heartbeat on a daemon thread or `asyncio` task). With `--until-done`, exits after `--idle-polls` empty claims, or when the coordinator goes away after work.
+- **Local:** no server; `LocalFsLedger` + `LocalFsSink`. Layer `write_to_log` / `progress_line` / `progress_bar` / `add_metric` go through the Sink into `log.txt` / `metrics.json` (TTY bars via `alive-progress`).
 
 ## Contract
 
@@ -124,7 +124,7 @@ sequenceDiagram
 
     Store->>Coord: cell/matrix terminal events
     Coord->>Store: stats + compare + figures
-    Coord->>Coord: selectWinner then merge handoff
+    Coord->>Coord: select_winner then merge handoff
     Coord->>Store: put handoff.json then open phase-2 matrix
     Note over Coord,W2: workers keep claiming until campaign idle
 ```

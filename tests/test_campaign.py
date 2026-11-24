@@ -98,11 +98,11 @@ def test_two_phase_handoff_params_and_pin(tmp_path):
         # phase1: a gets 0.9, b gets 0.5 → winner a, handoff mode_a=x
         score = 0.9 if mode == "x" else 0.5
         parent = run.parent or {}
-        run.addMetric("accuracy", score)
+        run.add_metric("accuracy", score)
         if str(parent.get("phase_id")) == "2":
             seen_phase2_params.append(dict(run.params))
-        run.writeOutput("model.bin", b"weights")
-        run.pinArtifact("model", "output/model.bin")
+        run.write_output("model.bin", b"weights")
+        run.pin_artifact("model", "output/model.bin")
 
     campaign = CampaignRun("phased.toml")
     campaign.execute(runner)
@@ -127,7 +127,7 @@ def test_preflight_cancel_halts_campaign(tmp_path):
     _setup_configs(tmp_path)
 
     def runner(run: Run) -> None:
-        run.addMetric("accuracy", 0.1)
+        run.add_metric("accuracy", 0.1)
 
     def hook(run: Run):
         raise __import__("bench_run").PreflightCancel("stop")

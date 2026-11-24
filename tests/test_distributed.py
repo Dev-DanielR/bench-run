@@ -87,7 +87,7 @@ def test_distributed_one_cell_matrix(tmp_path):
     stop = threading.Event()
 
     def runner(run: Run) -> None:
-        run.addMetric("accuracy", 0.77)
+        run.add_metric("accuracy", 0.77)
 
     def work() -> None:
         worker_loop(

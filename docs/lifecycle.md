@@ -29,22 +29,22 @@ stateDiagram-v2
 | Step | Who |
 |---|---|
 | Create working dir, write `config.toml`, `metadata.json` (`running`), open `log.txt` | `Run.__enter__` |
-| `preflight()` / `checkConfig()` | Machine that executes the Run: local driver or **worker** |
+| `preflight()` / `check_config()` | Machine that executes the Run: local driver or **worker** |
 | Call `runner(run)` | Local `execute` or worker claim loop |
 | `complete()` / `fail()` | Same; pushes package when using `CoordinatorLedger` |
 | Context `__exit__` with no terminal status | Treat as `fail` if exc, else `complete` if still `running` |
 
-`addMetric` / `writeOutput` / `writeToLog` / `pinArtifact` are valid only while `status == running`.
+`add_metric` / `write_output` / `write_to_log` / `pin_artifact` are valid only while `status == running`.
 
-### `pinArtifact`
+### `pin_artifact`
 
-`run.pinArtifact(stem, relative_path)` records `stem → relative_path` in Run metadata `pins` (and may mirror under metrics metadata). On campaign phase win, the driver copies those pinned files from the winning run package into handoff storage (see [Handoff](#handoff)).
+`run.pin_artifact(stem, relative_path)` records `stem → relative_path` in Run metadata `pins` (and may mirror under metrics metadata). On campaign phase win, the driver copies those pinned files from the winning run package into handoff storage (see [Handoff](#handoff)).
 
 ## Preflight
 
 Owned by `Run` on the **executing** machine (needs local `data.root`, GPUs, hooks).
 
-**Default `checkConfig` (structural):**
+**Default `check_config` (structural):**
 
 1. Config parses as TOML and resolves to a run config.
 2. Required fields present: section `name` (or constructor `name=`).
@@ -57,7 +57,7 @@ Owned by `Run` on the **executing** machine (needs local `data.root`, GPUs, hook
 
 Any preflight cancel on a cell in a phase → that cell `cancelled`, the phase `cancelled`, **no** winner selection, **no** handoff merge for that phase, and the **campaign stops**. `continue_on_fail` is ignored for preflight cancels. Other in-flight cells may still finish recording, but the phase and campaign do not proceed to a win path.
 
-**Extension:** override `Run.checkConfig`, or pass `preflight_hook(run) -> bool` (default checks then hook).
+**Extension:** override `Run.check_config`, or pass `preflight_hook(run) -> bool` (default checks then hook).
 
 ## Who drives matrix / campaign
 
@@ -138,7 +138,7 @@ sequenceDiagram
             Run-->>Matrix: cancelled
         else ok
             Matrix->>Runner: runner(run)
-            Runner->>Run: addMetric / writeOutput
+            Runner->>Run: add_metric / write_output
             Run->>Ledger: complete_run / fail_run
         end
     end
@@ -181,7 +181,7 @@ stateDiagram-v2
     [*] --> pending: phase listed
     pending --> skipped: filtered by --phase-id
     pending --> running: start child matrix
-    running --> ok: matrix ok + selectWinner
+    running --> ok: matrix ok + select_winner
     running --> failed: matrix failed, stop or continue_on_fail
     running --> cancelled: preflight cancel dominates
     ok --> [*]: handoff merged
@@ -196,12 +196,12 @@ stateDiagram-v2
 2. For each phase in order (optional `--phase-id` filter):
    - Apply cumulative `handoff.json` onto phase matrix cell params (see [Handoff](#handoff)).
    - Run matrix algorithm for that phase’s matrix (`max_failures` from that matrix config).
-   - On matrix success: `selectWinner`; append `winners.json`; merge `handoff_keys` + pinned artifact stems into cumulative handoff; copy artifact files.
+   - On matrix success: `select_winner`; append `winners.json`; merge `handoff_keys` + pinned artifact stems into cumulative handoff; copy artifact files.
    - On matrix failure: if `continue_on_fail`, mark phase `failed` and continue; else **stop campaign**.
    - On preflight cancel dominating a phase: mark phase `cancelled`; **do not** apply `continue_on_fail`; **stop campaign**; no winner/handoff for that phase.
 3. Write final `handoff.json` / `winners.json`.
 
-### `selectWinner`
+### `select_winner`
 
 Among cells with status **`ok`**, pick by `winner_metric` **mean** from matrix `stats.json`, direction `max` or `min` (`winner_direction`).
 
@@ -221,7 +221,7 @@ sequenceDiagram
     Camp->>Matrix: run phase matrix
     Matrix-->>Camp: matrix terminal
     alt matrix ok
-        Camp->>Camp: selectWinner
+        Camp->>Camp: select_winner
         Camp->>Ledger: append winners.json
         Camp->>Camp: merge handoff_keys and artifact stems
         Camp->>Ledger: put handoff.json
@@ -333,10 +333,10 @@ Only an interrupted **`running`** Run is resumed. Terminal Run resume does not c
 
 Performed by the **campaign driver** (local process or coordinator) after a phase wins:
 
-1. `selectWinner` (see above).
+1. `select_winner` (see above).
 2. Read winning cell’s resolved `[params]` (post prior handoff).
 3. For each key in phase `handoff_keys`: copy value into cumulative `handoff.params` (and `by_phase[phase_id].params`).
-4. **Artifact copy:** for each stem pinned via `run.pinArtifact` on a completed run of the winning cell (or declared in `[run].handoff_artifacts` and present in that run’s `pins` / outputs), copy file bytes into  
+4. **Artifact copy:** for each stem pinned via `run.pin_artifact` on a completed run of the winning cell (or declared in `[run].handoff_artifacts` and present in that run’s `pins` / outputs), copy file bytes into  
    `campaign_dir/handoff/<phase_id>/<stem>`  
    preserving the **source file extension** (e.g. source `output/model.pt` → `handoff/1/model.pt`). Prefer the winning cell’s first completed run that has the pin; if multiple pins for the same stem, last write in pin order wins.
 5. Record in `handoff.json` under `artifacts` / `by_phase`: stem → **relative path under the campaign dir** (e.g. `handoff/1/model.pt`).

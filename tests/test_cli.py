@@ -81,7 +81,7 @@ def test_local_matrix_smoke(tmp_path):
     )
 
     def runner(run: Run) -> None:
-        run.addMetric("accuracy", 0.42)
+        run.add_metric("accuracy", 0.42)
 
     code = main(runner, argv=["--config", "m1.toml", "--no-console-log"])
     assert code == 0

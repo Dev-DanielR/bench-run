@@ -11,6 +11,7 @@ import httpx
 from bench_run.artifacts import (
     allocate_stamp_dir,
     read_metadata,
+    read_metrics,
     utc_now_iso,
     write_json,
     write_metadata,
@@ -32,11 +33,13 @@ class CoordinatorLedger:
         token: str | None = None,
         local_root: Path | None = None,
         timeout_s: float = 60.0,
+        sink: Any | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.root = Path(local_root) if local_root else bench_run_dir()
         self.results = self.root / "results"
+        self.sink = sink
         self._client = httpx.Client(base_url=self.base_url, timeout=timeout_s)
         self._run_dirs: dict[str, Path] = {}
         self._buffers: dict[str, dict[str, Any]] = {}
@@ -78,13 +81,11 @@ class CoordinatorLedger:
     def allocate_run_dir(self, stem: str) -> tuple[str, Path]:
         rid, path = allocate_stamp_dir(self.results / "run", stem)
         self._run_dirs[rid] = path
-        self._buffers[rid] = {"metrics": {"run": {}, "items": {}}, "outputs": {}, "log": []}
+        self._buffers[rid] = {"outputs": {}}
         return rid, path
 
     def _buf(self, run_id: str) -> dict[str, Any]:
-        return self._buffers.setdefault(
-            run_id, {"metrics": {"run": {}, "items": {}}, "outputs": {}, "log": []}
-        )
+        return self._buffers.setdefault(run_id, {"outputs": {}})
 
     def create_run(self, spec: RunSpec) -> RunHandle:
         stem = spec.get("name") or spec.get("config_stem") or "run"
@@ -120,22 +121,6 @@ class CoordinatorLedger:
         write_metrics(path, {"run": {}, "items": {}})
         return {"run_id": run_id, "dir": str(path), "status": "running"}
 
-    def write_metrics(self, run_id: str, metrics: dict) -> None:
-        self._buf(run_id)["metrics"] = metrics
-        try:
-            write_metrics(self.run_dir(run_id), metrics)
-        except Exception:
-            pass
-
-    def append_log(self, run_id: str, text: str) -> None:
-        self._buf(run_id)["log"].append(text if text.endswith("\n") else text + "\n")
-        try:
-            path = self.run_dir(run_id) / "log.txt"
-            with path.open("a", encoding="utf-8") as f:
-                f.write(text if text.endswith("\n") else text + "\n")
-        except Exception:
-            pass
-
     def put_output(self, run_id: str, relative_path: str, data: bytes) -> None:
         self._buf(run_id)["outputs"][relative_path] = data
         try:
@@ -166,10 +151,29 @@ class CoordinatorLedger:
         cfg = path / "config.toml"
         if cfg.is_file():
             config_toml = cfg.read_text(encoding="utf-8")
-        log_text = "".join(buf.get("log") or [])
-        log_path = path / "log.txt"
-        if log_path.is_file() and not log_text:
-            log_text = log_path.read_text(encoding="utf-8")
+
+        from bench_run.sink.base import Scope
+
+        scope = Scope(layer="run", id=run_id, dir=path)
+        log_text = ""
+        metrics: dict[str, Any] = {"run": {}, "items": {}}
+        if self.sink is not None:
+            lt = self.sink.log_text(scope)
+            if lt:
+                log_text = lt
+            ms = self.sink.metrics_snapshot(scope)
+            if ms is not None:
+                metrics = ms
+        if not log_text:
+            log_path = path / "log.txt"
+            if log_path.is_file():
+                log_text = log_path.read_text(encoding="utf-8")
+        if metrics == {"run": {}, "items": {}}:
+            try:
+                metrics = read_metrics(path)
+            except Exception:
+                pass
+
         artifacts = [
             {"relative_path": rel, "data": data} for rel, data in outputs.items()
         ]
@@ -180,7 +184,7 @@ class CoordinatorLedger:
                 "error": error,
                 "pins": pins,
             },
-            "metrics": buf.get("metrics") or {"run": {}, "items": {}},
+            "metrics": metrics,
             "config_toml": config_toml,
             "log": log_text,
             "artifacts": artifacts,

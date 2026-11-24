@@ -8,4 +8,5 @@ build/
 .venv/
 venv/
 bench_run/results/
+examples/**/bench_run/results/
 *.svg

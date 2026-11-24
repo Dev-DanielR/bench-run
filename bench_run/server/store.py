@@ -238,16 +238,6 @@ class ServerStore:
         write_metrics(path, {"run": {}, "items": {}})
         return {"run_id": run_id, "dir": str(path), "status": "queued"}
 
-    def write_metrics(self, run_id: str, metrics: dict) -> None:
-        write_metrics(self.run_dir(run_id), metrics)
-
-    def append_log(self, run_id: str, text: str) -> None:
-        path = self.run_dir(run_id) / "log.txt"
-        with path.open("a", encoding="utf-8") as f:
-            f.write(text)
-            if not text.endswith("\n"):
-                f.write("\n")
-
     def put_output(self, run_id: str, relative_path: str, data: bytes) -> None:
         out = self.run_dir(run_id) / relative_path
         out.parent.mkdir(parents=True, exist_ok=True)

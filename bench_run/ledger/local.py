@@ -149,16 +149,6 @@ class LocalFsLedger:
         write_metrics(path, {"run": {}, "items": {}})
         return {"run_id": run_id, "dir": str(path), "status": "running"}
 
-    def write_metrics(self, run_id: str, metrics: dict) -> None:
-        write_metrics(self.run_dir(run_id), metrics)
-
-    def append_log(self, run_id: str, text: str) -> None:
-        path = self.run_dir(run_id) / "log.txt"
-        with path.open("a", encoding="utf-8") as f:
-            f.write(text)
-            if not text.endswith("\n"):
-                f.write("\n")
-
     def put_output(self, run_id: str, relative_path: str, data: bytes) -> None:
         out = self.run_dir(run_id) / relative_path
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -182,12 +172,12 @@ class LocalFsLedger:
 
     def complete_run(self, run_id: str, package: RunPackage | None = None) -> None:
         if package and package.get("metrics") is not None:
-            self.write_metrics(run_id, package["metrics"])
+            write_metrics(self.run_dir(run_id), package["metrics"])
         self._finalize_run(run_id, "complete")
 
     def fail_run(self, run_id: str, error: str, package: RunPackage | None = None) -> None:
         if package and package.get("metrics") is not None:
-            self.write_metrics(run_id, package["metrics"])
+            write_metrics(self.run_dir(run_id), package["metrics"])
         self._finalize_run(run_id, "failed", error=error)
 
     def cancel_run(self, run_id: str, reason: str = "") -> None:

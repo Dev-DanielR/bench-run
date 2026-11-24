@@ -25,7 +25,7 @@ sequenceDiagram
     Driver->>Ledger: find_completed_runs / enqueue_run
     alt LocalFsLedger
         Driver->>Runner: inline Run
-        Runner->>Ledger: write_metrics / complete_run
+        Runner->>Ledger: put_output / complete_run
     else Coordinator store + workers
         Worker->>Ledger: claim_run
         Ledger-->>Worker: RunSpec
@@ -122,7 +122,7 @@ Logical contents for `complete_run` / `fail_run` / `PUT …/package`:
 
 | Field | Required on PUT | Notes |
 |---|---|---|
-| `metadata` | yes | Must include terminal `status`: `complete` \| `failed` \| `cancelled`. Optional `error` string on fail. Optional `pins` stem → relative_path from `pinArtifact`. |
+| `metadata` | yes | Must include terminal `status`: `complete` \| `failed` \| `cancelled`. Optional `error` string on fail. Optional `pins` stem → relative_path from `pin_artifact`. |
 | `metrics` | for `complete` | May be `{}` on fail/cancel. |
 | `config_toml` | recommended | Snapshot text. |
 | `log` | recommended | Full or tail log text. |
@@ -326,7 +326,7 @@ On each terminal Run package (or cancel) for `(matrix_id, cell_id)`:
 
 1. Update manifest ids/status (`completed_run_ids` / `failed_run_ids` / cancel). See [Lifecycle — shortfall](lifecycle.md#matrix-algorithm-driver).
 2. If cell `len(completed_run_ids) >= repeats`, recompute that cell’s stats slice.
-3. If all cells terminal, build full `stats.json`, `compare.json`, figures; signal matrix terminal waiters; campaign driver may `selectWinner` / handoff / open next phase.
+3. If all cells terminal, build full `stats.json`, `compare.json`, figures; signal matrix terminal waiters; campaign driver may `select_winner` / handoff / open next phase.
 
 ### Driver wait (matrix terminal)
 
@@ -348,7 +348,7 @@ sequenceDiagram
     alt all cells terminal
         Agg->>Store: stats.json + compare.json + figures
         Agg->>Camp: matrix terminal
-        Camp->>Camp: selectWinner / handoff / next phase
+        Camp->>Camp: select_winner / handoff / next phase
     end
 ```
 
@@ -358,8 +358,6 @@ sequenceDiagram
 class Ledger(Protocol):
     # Runs
     def create_run(self, spec: RunSpec) -> RunHandle: ...
-    def write_metrics(self, run_id: str, metrics: dict) -> None: ...
-    def append_log(self, run_id: str, text: str) -> None: ...
     def put_output(self, run_id: str, relative_path: str, data: bytes) -> None: ...
     def complete_run(self, run_id: str, package: RunPackage | None = None) -> None: ...
     def fail_run(self, run_id: str, error: str, package: RunPackage | None = None) -> None: ...
@@ -400,7 +398,7 @@ class Ledger(Protocol):
 
 `LocalFsLedger`: filesystem under `bench_run/results/`; `enqueue_run` / `claim_run` unused (driver runs inline). `wait_matrix_terminal` returns immediately after in-process drive updates.
 
-`CoordinatorLedger` (worker client): buffers metrics/outputs/logs; `complete_run` / `fail_run` / `cancel_run` upload multipart; implements `claim_run` / heartbeats. Handoff download via GET handoff + artifact paths in `RunSpec`.
+`CoordinatorLedger` (worker client): buffers outputs; reads log/metrics from the injected `CoordinatorSink` (or disk) when building packages; `complete_run` / `fail_run` / `cancel_run` upload multipart; implements `claim_run` / heartbeats. Handoff download via GET handoff + artifact paths in `RunSpec`.
 
 Coordinator **server store** implements the same protocol for the in-process driver hosted in the server.
 

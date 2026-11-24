@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import traceback
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from bench_run.artifacts import (
     read_metadata,
@@ -13,15 +14,16 @@ from bench_run.artifacts import (
     write_metrics,
 )
 from bench_run.config import (
-    ConfigError,
-    dump_toml,
     load_toml,
     resolveConfigPath,
     section_name,
     workspace_root,
+    dump_toml,
 )
 from bench_run.fingerprint import compute_fingerprint
 from bench_run.ledger.local import LocalFsLedger
+from bench_run.sink.base import LogLine, MetricSet, ProgressLine, Scope
+from bench_run.sink.local import LocalFsSink
 
 
 class PreflightCancel(Exception):
@@ -35,20 +37,25 @@ class Run:
         *,
         name: str | None = None,
         log_to_console: bool = True,
+        tty_bar: bool | None = None,
         ledger: Any | None = None,
+        sink: Any | None = None,
         preflight_hook: Callable[[Run], bool | None] | None = None,
         parent: dict | None = None,
         params_overlay: dict | None = None,
         handoff_artifacts: dict[str, Path] | None = None,
         fingerprint: str | None = None,
     ) -> None:
-        self._log_to_console = log_to_console
         self._preflight_hook = preflight_hook
         self._parent = parent
         self._params_overlay = dict(params_overlay or {})
         self._handoff_artifacts_in = dict(handoff_artifacts or {})
         self._fingerprint_override = fingerprint
         self.ledger: LocalFsLedger = ledger or LocalFsLedger()
+        self.sink = sink or LocalFsSink(
+            log_to_console=log_to_console,
+            tty_bar=tty_bar,
+        )
 
         self._config_path: Path | None = None
         self._config_data: dict[str, Any]
@@ -85,8 +92,8 @@ class Run:
         self._status = "constructed"
         self._metrics: dict[str, Any] = {"run": {}, "items": {}}
         self._pins: dict[str, str] = {}
-        self._log_fp: Any = None
         self._entered = False
+        self._scope: Scope | None = None
         self.handoff_artifacts: dict[str, Path] = {}
 
         if self._fingerprint_override:
@@ -95,6 +102,17 @@ class Run:
             self._fingerprint = compute_fingerprint(
                 self._config_stem, self._params, self._fingerprint_keys
             )
+
+    def _bind_scope(self) -> Scope:
+        assert self._id is not None
+        self._scope = Scope(layer="run", id=self._id, dir=self._dir)
+        return self._scope
+
+    @property
+    def scope(self) -> Scope:
+        if self._scope is None:
+            raise RuntimeError("Run not entered")
+        return self._scope
 
     # --- properties ---
 
@@ -141,9 +159,9 @@ class Run:
         self._id = rid
         self._dir = path
         self._status = "running"
+        self._bind_scope()
         now = utc_now_iso()
 
-        # snapshot config with resolved params
         snap = dict(self._config_data)
         snap_run = dict(snap.get("run") or {})
         snap_run["name"] = self._name
@@ -171,10 +189,9 @@ class Run:
         }
         write_metadata(path, meta)
         write_metrics(path, self._metrics)
-        self._log_fp = (path / "log.txt").open("a", encoding="utf-8")
+        (path / "log.txt").touch()
         self._entered = True
 
-        # materialize handoff artifacts into run_dir/handoff/
         if self._handoff_artifacts_in:
             handoff_dir = path / "handoff"
             handoff_dir.mkdir(parents=True, exist_ok=True)
@@ -194,7 +211,7 @@ class Run:
                     dest.write_bytes(src_path.read_bytes())
                 self.handoff_artifacts[stem] = dest
 
-        self.writeToLog(f"run started id={rid} fingerprint={self._fingerprint}")
+        self.write_to_log(f"run started id={rid} fingerprint={self._fingerprint}")
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
@@ -203,22 +220,12 @@ class Run:
         if self._status == "running":
             if exc_type is PreflightCancel:
                 self._mark_cancelled(str(exc) if exc else "preflight cancel")
-                self._close_log()
-                return True  # suppress
+                return True
             if exc_type is not None:
                 self.fail(exc)
             else:
                 self.complete()
-        self._close_log()
         return False
-
-    def _close_log(self) -> None:
-        if self._log_fp is not None:
-            try:
-                self._log_fp.close()
-            except Exception:
-                pass
-            self._log_fp = None
 
     def _flush_meta(self, **updates: Any) -> None:
         meta = read_metadata(self.dir)
@@ -231,9 +238,12 @@ class Run:
         if self._status != "running":
             raise RuntimeError(f"run is {self._status}, expected running")
 
+    def _emit_metrics(self) -> None:
+        self.sink.emit(self.scope, MetricSet(dict(self._metrics)))
+
     # --- preflight ---
 
-    def checkConfig(self) -> bool:
+    def check_config(self) -> bool:
         """Structural defaults. Override for custom checks."""
         if not self._name:
             raise PreflightCancel("run name is required")
@@ -242,7 +252,6 @@ class Run:
         if root:
             p = Path(root)
             if not p.is_absolute():
-                # relative to workspace or bench_run/
                 candidates = [
                     workspace_root() / p,
                     workspace_root() / "bench_run" / p,
@@ -254,9 +263,9 @@ class Run:
     def preflight(self) -> bool:
         self._require_running()
         try:
-            ok = self.checkConfig()
+            ok = self.check_config()
             if ok is False:
-                raise PreflightCancel("checkConfig returned False")
+                raise PreflightCancel("check_config returned False")
             if self._preflight_hook is not None:
                 hook_ok = self._preflight_hook(self)
                 if hook_ok is False:
@@ -274,56 +283,65 @@ class Run:
             self.ledger.cancel_run(self.id, reason)
         except Exception:
             pass
-        self.writeToLog(f"cancelled: {reason}")
+        self.write_to_log(f"cancelled: {reason}")
 
-    # --- metrics / IO ---
+    # --- telemetry ---
 
-    def addMetric(self, key: str, value: Any) -> None:
+    def add_metric(self, key: str, value: Any) -> None:
         self._require_running()
         self._metrics.setdefault("run", {})[key] = value
-        write_metrics(self.dir, self._metrics)
-        try:
-            self.ledger.write_metrics(self.id, self._metrics)
-        except Exception:
-            pass
+        self._emit_metrics()
 
-    def addItemMetric(self, item_id: str, key: str, value: Any) -> None:
+    def add_item_metric(self, item_id: str, key: str, value: Any) -> None:
         self._require_running()
         items = self._metrics.setdefault("items", {})
         items.setdefault(item_id, {})[key] = value
-        write_metrics(self.dir, self._metrics)
+        self._emit_metrics()
 
-    def addItemMetrics(self, item_id: str, mapping: dict[str, Any]) -> None:
+    def add_item_metrics(self, item_id: str, mapping: dict[str, Any]) -> None:
         self._require_running()
         items = self._metrics.setdefault("items", {})
         items.setdefault(item_id, {}).update(mapping)
-        write_metrics(self.dir, self._metrics)
+        self._emit_metrics()
 
-    def getMetrics(self) -> dict:
+    def get_metrics(self) -> dict:
         return self._metrics
 
-    def writeToLog(self, msg: str) -> None:
-        line = f"{utc_now_iso()} {msg}"
-        if self._log_fp is not None:
-            self._log_fp.write(line + "\n")
-            self._log_fp.flush()
-        if self._log_to_console:
-            print(line, flush=True)
-        if self._entered:
-            try:
-                self.ledger.append_log(self.id, line)
-            except Exception:
-                pass
+    def write_to_log(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, LogLine(msg))
 
-    def outputPath(self, *parts: str) -> Path:
+    def progress_line(self, msg: str) -> None:
+        if self._scope is None:
+            return
+        self.sink.emit(self._scope, ProgressLine(msg))
+
+    @contextmanager
+    def progress_bar(
+        self,
+        total: int | None = None,
+        *,
+        title: str | None = None,
+        console: bool | None = None,
+        tty_bar: bool | None = None,
+    ) -> Iterator[Any]:
+        with self.sink.progress_bar(
+            self.scope, total, title=title, tty_bar=tty_bar
+        ) as bar:
+            yield bar
+
+    # --- orchestration IO (Ledger) ---
+
+    def output_path(self, *parts: str) -> Path:
         self._require_running()
         out = self.dir.joinpath("output", *parts)
         out.parent.mkdir(parents=True, exist_ok=True)
         return out
 
-    def writeOutput(self, name: str, data: bytes | str) -> Path:
+    def write_output(self, name: str, data: bytes | str) -> Path:
         self._require_running()
-        path = self.outputPath(name)
+        path = self.output_path(name)
         if isinstance(data, str):
             path.write_text(data, encoding="utf-8")
             raw = data.encode("utf-8")
@@ -336,7 +354,7 @@ class Run:
             pass
         return path
 
-    def pinArtifact(self, stem: str, path: str | Path) -> None:
+    def pin_artifact(self, stem: str, path: str | Path) -> None:
         self._require_running()
         p = Path(path)
         if p.is_absolute():
@@ -355,10 +373,10 @@ class Run:
             return
         self._status = "complete"
         now = utc_now_iso()
-        write_metrics(self.dir, self._metrics)
+        self._emit_metrics()
         self._flush_meta(status="complete", finished_at=now)
         self.ledger.complete_run(self.id)
-        self.writeToLog("complete")
+        self.write_to_log("complete")
 
     def fail(self, exc: BaseException | None = None) -> None:
         if self._status != "running":
@@ -368,12 +386,12 @@ class Run:
         err = ""
         if exc is not None:
             err = f"{type(exc).__name__}: {exc}"
-            self.writeToLog(err)
-            self.writeToLog(traceback.format_exc())
-        write_metrics(self.dir, self._metrics)
+            self.write_to_log(err)
+            self.write_to_log(traceback.format_exc())
+        self._emit_metrics()
         self._flush_meta(status="failed", finished_at=now, error=err or None)
         self.ledger.fail_run(self.id, err or "failed")
-        self.writeToLog("failed")
+        self.write_to_log("failed")
 
     @classmethod
     def resume(cls, results_dir: str | Path, **kwargs: Any) -> Run | None:
@@ -383,7 +401,6 @@ class Run:
         status = meta.get("status")
         if status in ("complete", "failed", "cancelled"):
             return None
-        # reopen running
         config_path = d / "config.toml"
         data = load_toml(config_path) if config_path.is_file() else {"run": {"name": meta.get("name")}}
         run = cls(data, name=meta.get("name"), **kwargs)
@@ -393,6 +410,6 @@ class Run:
         run._entered = True
         run._fingerprint = meta.get("fingerprint") or run._fingerprint
         run._pins = dict(meta.get("pins") or {})
-        run._log_fp = (d / "log.txt").open("a", encoding="utf-8")
+        run._bind_scope()
         run.ledger.register_run_dir(run._id, d)
         return run

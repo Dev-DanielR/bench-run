@@ -21,7 +21,7 @@ name = "baseline"                 # required unless Run(..., name=) is passed
 |---|---|---|
 | `run.name` | — | Required in TOML unless constructor `name=` supplied |
 | `run.fingerprint_keys` | `[]` | Params keys folded into fingerprint payload |
-| `run.handoff_artifacts` | `[]` | Stems the runner may `pinArtifact`; campaign may promote them |
+| `run.handoff_artifacts` | `[]` | Stems the runner may `pin_artifact`; campaign may promote them |
 | `data.root` | unset | Dataset root under workspace |
 | `params.*` | `{}` | Free-form; merged with matrix overlays and campaign handoff |
 
