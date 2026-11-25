@@ -170,8 +170,8 @@ Parses argv and runs local drive, coordinator serve(+drive), or worker claim loo
 
 | Symbol | Behavior |
 |---|---|
-| `resolveConfigPath(name)` | Bare stem → `bench_run/configs/run/<stem>.toml`; absolute/relative paths unchanged if they exist |
-| `resolveMatrixConfigPath(name)` | Same under `bench_run/configs/matrix/` |
-| `resolveCampaignConfigPath(name)` | Same under `bench_run/configs/campaign/` |
+| `resolve_config_path(name)` | Bare stem → `bench_run/configs/run/<stem>.toml`; absolute/relative paths unchanged if they exist |
+| `resolve_matrix_config_path(name)` | Same under `bench_run/configs/matrix/` |
+| `resolve_campaign_config_path(name)` | Same under `bench_run/configs/campaign/` |
 
 Related: [Concepts](concepts.md), [Lifecycle](lifecycle.md), [Artifacts](artifacts.md), [Package](package.md).

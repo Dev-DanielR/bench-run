@@ -1,0 +1,12 @@
+[matrix]
+name = "one_fail"
+repeats = 2
+max_failures = 2
+
+[[matrix.cells]]
+id = "boom"
+config = "boom.toml"
+
+[[matrix.cells]]
+id = "ok"
+config = "ok.toml"

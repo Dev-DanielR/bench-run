@@ -4,16 +4,33 @@ Python package name: `bench_run`.
 
 ```
 bench_run/
-  __init__.py          # exports: Run, MatrixRun, CampaignRun, main, PreflightCancel, resolve*ConfigPath
-  run.py               # Run context manager, metrics helpers, preflight, pins
-  matrix.py            # MatrixRun: shortfall, stats, compare, figures drive
-  campaign.py          # CampaignRun: phases, select_winner, handoff
-  main.py              # argv parse → local drive | coordinator serve(+drive) | worker claim loop
+  __init__.py          # exports: Run, MatrixRun, CampaignRun, main, PreflightCancel, resolve_*_config_path
+  main.py              # argv parse → resolve configs → execution runners
   config.py            # TOML load, path resolve, classify experiment vs execution
   fingerprint.py       # canonical payload + sha256
-  artifacts.py         # read/write metadata, metrics, manifests, stats, compare, handoff
-  figures.py           # matplotlib Agg mean±std bar charts
-  worker.py            # claim_run loop: RunSpec → preflight → runner → push
+  fs.py                # JSON IO, stamps, metadata/metrics/manifest helpers
+  layers/
+    __init__.py        # re-exports Run, MatrixRun, CampaignRun, PreflightCancel
+    run.py             # Run context manager, metrics helpers, preflight, pins
+    matrix.py          # MatrixRun: shortfall, stats, compare, figures drive
+    campaign.py        # CampaignRun: phases, select_winner, handoff
+  reporting/
+    __init__.py
+    stats.py           # build_stats
+    compare.py         # build_compare
+    figures.py         # matplotlib Agg mean±std bar charts
+    matrix.py          # write_matrix_reports / rewrite_compare_and_figures
+  execution/
+    __init__.py
+    local.py           # local drive + resume
+    worker.py          # claim loop + worker role entry
+    server/            # coordinator only
+      __init__.py
+      coordinator.py   # serve + optional matrix/campaign drive
+      app.py           # Starlette app
+      claims.py        # Run work queue / leases
+      aggregate.py     # cell terminal/status; calls reporting
+      store.py         # coordinator persistent store
   ledger/
     __init__.py
     base.py            # Ledger Protocol (orchestration)
@@ -24,35 +41,31 @@ bench_run/
     base.py            # Sink Protocol + Scope/events (telemetry)
     local.py           # LocalFsSink
     coordinator.py     # CoordinatorSink (worker buffer)
-  server/              # coordinator only
-    __init__.py
-    app.py             # Starlette app + hosts MatrixRun/CampaignRun driver
-    claims.py          # Run work queue / leases
-    aggregate.py       # matrix stats/compare/figures from run packages
-    store.py           # server-side ledger store
 ```
 
 | Module | Responsibility |
 |---|---|
-| `run.py` | Single-run lifecycle, metrics, pins, preflight |
-| `matrix.py` | Cell shortfall orchestration, stats/compare/figures |
-| `campaign.py` | Phase loop, winner selection, handoff merge |
-| `main.py` | CLI entry: role dispatch |
+| `layers/run.py` | Single-run lifecycle, metrics, pins, preflight |
+| `layers/matrix.py` | Cell shortfall orchestration; delegates reports to `reporting/` |
+| `layers/campaign.py` | Phase loop, winner selection, handoff merge |
+| `main.py` | CLI entry: argv + config resolve + dispatch |
+| `execution/local.py` | Local run/matrix/campaign drive and resume |
+| `execution/worker.py` | Worker claim/heartbeat/push loop |
+| `execution/server/` | Coordinator HTTP store + in-process driver |
+| `fs.py` | On-disk JSON / stamp / metadata helpers |
+| `reporting/` | stats, compare, figures |
 | `config.py` | Load/validate TOML; resolve config paths |
 | `fingerprint.py` | Canonical JSON fingerprint + sha256 |
-| `artifacts.py` | On-disk JSON artifact IO |
-| `figures.py` | Best-effort matplotlib Agg charts |
-| `worker.py` | Worker claim/heartbeat/push loop |
 | `ledger/` | Orchestration: claims, outputs, manifests, stats, packages |
 | `sink/` | Telemetry: log, progress, metrics |
 
 | `ledger.base` | Ledger protocol |
 | `ledger.local` | Local filesystem ledger |
 | `ledger.coordinator` | HTTP client ledger for workers |
-| `server.app` | Starlette + uvicorn ASGI app; in-process driver |
-| `server.claims` | Claim queue and leases |
-| `server.aggregate` | Package → stats/compare/figures |
-| `server.store` | Coordinator persistent store |
+| `execution.server.app` | Starlette + uvicorn ASGI app |
+| `execution.server.claims` | Claim queue and leases |
+| `execution.server.aggregate` | Cell status; triggers reporting |
+| `execution.server.store` | Coordinator persistent store |
 
 Project workspace layout (data + configs) remains the on-disk tree in [Layout](layout.md); it is not necessarily inside the import package.
 
@@ -65,9 +78,9 @@ from bench_run import (
     CampaignRun,
     main,
     PreflightCancel,
-    resolveConfigPath,
-    resolveMatrixConfigPath,
-    resolveCampaignConfigPath,
+    resolve_config_path,
+    resolve_matrix_config_path,
+    resolve_campaign_config_path,
 )
 ```
 

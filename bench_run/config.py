@@ -78,20 +78,20 @@ def _resolve_under(name: str | Path, subdir: str) -> Path:
     return _unique_stem_search(stem, root / "configs" / subdir)
 
 
-def resolveConfigPath(name: str | Path) -> Path:
+def resolve_config_path(name: str | Path) -> Path:
     """Bare stem → bench_run/configs/run/<stem>.toml."""
     return _resolve_under(name, "run")
 
 
-def resolveMatrixConfigPath(name: str | Path) -> Path:
+def resolve_matrix_config_path(name: str | Path) -> Path:
     return _resolve_under(name, "matrix")
 
 
-def resolveCampaignConfigPath(name: str | Path) -> Path:
+def resolve_campaign_config_path(name: str | Path) -> Path:
     return _resolve_under(name, "campaign")
 
 
-def resolveExecutionConfigPath(name: str | Path) -> Path:
+def resolve_execution_config_path(name: str | Path) -> Path:
     return _resolve_under(name, "execution")
 
 

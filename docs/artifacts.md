@@ -1,5 +1,7 @@
 # Artifact schemas
 
+On-disk result JSON shapes (not a Python module). Writers: `fs.py` for metadata/metrics/manifest IO; `reporting/` for matrix `stats.json` / `compare.json` / figures.
+
 All structured artifacts are JSON. Timestamps are UTC ISO-8601 strings. Paths in JSON are relative to the result directory unless noted.
 
 Result stamp format: `YYYYMMDD_HHMMSS_<stem>` (UTC). The stamp is the result directory basename and the `metadata.id` / `*_id` value.

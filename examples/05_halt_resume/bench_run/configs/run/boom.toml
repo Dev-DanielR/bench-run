@@ -1,0 +1,9 @@
+[run]
+name = "boom"
+fingerprint_keys = ["mode", "phase", "fail"]
+handoff_artifacts = ["model"]
+
+[params]
+mode = "z"
+phase = 1
+fail = true

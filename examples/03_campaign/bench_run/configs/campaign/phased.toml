@@ -5,16 +5,16 @@ continue_on_fail = false
 
 [[campaign.phases]]
 id = 1
-name = "stage_a"
-matrix = "stage1.toml"
+name = "phase1"
+matrix = "phase1.toml"
 winner_metric = "accuracy"
 winner_direction = "max"
-handoff_keys = ["mode_a"]
+handoff_keys = ["mode"]
 
 [[campaign.phases]]
 id = 2
-name = "stage_b"
-matrix = "stage2.toml"
+name = "phase2"
+matrix = "phase2.toml"
 winner_metric = "accuracy"
 winner_direction = "max"
-handoff_keys = ["mode_a"]
+handoff_keys = ["mode"]

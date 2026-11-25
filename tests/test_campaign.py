@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from bench_run import CampaignRun, Run
-from bench_run.artifacts import read_json
+from bench_run.fs import read_json
 from bench_run.config import dump_toml
 
 
@@ -123,7 +123,32 @@ def test_two_phase_handoff_params_and_pin(tmp_path):
         assert p.get("mode_a") == "x"
 
 
+def test_cell_failure_halts_campaign(tmp_path):
+    _setup_configs(tmp_path)
+
+    def runner(run: Run) -> None:
+        if run.params.get("mode_a") == "y":
+            raise RuntimeError("boom")
+        run.add_metric("accuracy", 0.9)
+        run.write_output("model.bin", b"weights")
+        run.pin_artifact("model", "output/model.bin")
+
+    campaign = CampaignRun("phased.toml")
+    campaign.execute(runner)
+
+    assert campaign.status == "failed"
+    phases = {str(p["id"]): p for p in campaign._manifest["phases"]}
+    assert phases["1"]["status"] == "failed"
+    assert phases["1"].get("winner_cell") is None
+    assert phases["2"]["status"] == "pending"
+    winners = read_json(campaign.dir / "winners.json")
+    assert "1" not in winners.get("phases", {})
+    handoff = read_json(campaign.dir / "handoff.json")
+    assert handoff.get("artifacts") in (None, {})
+
+
 def test_preflight_cancel_halts_campaign(tmp_path):
+
     _setup_configs(tmp_path)
 
     def runner(run: Run) -> None:

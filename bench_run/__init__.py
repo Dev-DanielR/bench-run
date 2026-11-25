@@ -1,15 +1,13 @@
 """bench-run: TOML-driven experiment harness."""
 
-from bench_run.campaign import CampaignRun
 from bench_run.config import (
-    resolveCampaignConfigPath,
-    resolveConfigPath,
-    resolveMatrixConfigPath,
+    resolve_campaign_config_path,
+    resolve_config_path,
+    resolve_matrix_config_path,
     workspace_root,
 )
+from bench_run.layers import CampaignRun, MatrixRun, PreflightCancel, Run
 from bench_run.main import main
-from bench_run.matrix import MatrixRun
-from bench_run.run import PreflightCancel, Run
 
 __all__ = [
     "Run",
@@ -17,9 +15,9 @@ __all__ = [
     "CampaignRun",
     "main",
     "PreflightCancel",
-    "resolveConfigPath",
-    "resolveMatrixConfigPath",
-    "resolveCampaignConfigPath",
+    "resolve_config_path",
+    "resolve_matrix_config_path",
+    "resolve_campaign_config_path",
     "workspace_root",
 ]
 

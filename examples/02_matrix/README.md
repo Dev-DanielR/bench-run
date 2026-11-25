@@ -6,7 +6,8 @@ Teaches a two-cell matrix with repeats: fingerprint reuse, `stats.json`, `compar
 
 | Path | Role |
 |---|---|
-| `run.py` | Same runner for every cell |
+| `run.py` | Maps `cell_id` `on`/`off` → [`project.on`](../project/on.py) / [`project.off`](../project/off.py) |
+| `../project/on.py` / `off.py` | Plain cells (scores + mode string) |
 | `bench_run/configs/run/on.toml` | Cell “on” run config |
 | `bench_run/configs/run/off.toml` | Cell “off” run config |
 | `bench_run/configs/matrix/factor_a.toml` | Cells, repeats, baseline, figure metrics |

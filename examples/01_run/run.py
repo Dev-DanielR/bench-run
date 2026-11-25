@@ -1,4 +1,4 @@
-"""Single-run example entrypoint."""
+"""Single-run example — wraps project.baseline."""
 
 from __future__ import annotations
 
@@ -11,13 +11,14 @@ from _bootstrap import bind_example_root
 bind_example_root(Path(__file__).resolve().parent)
 
 from bench_run import Run, main
+from project import baseline
 
 
 def runner(run: Run) -> None:
     seed = int(run.params.get("seed", 0))
-    run.add_metric("accuracy", 0.75 + seed * 0.01)
-    path = run.output_path("note.txt")
-    path.write_text(f"seed={seed}\n", encoding="utf-8")
+    accuracy, note = baseline.run(seed=seed)
+    run.add_metric("accuracy", accuracy)
+    run.output_path("note.txt").write_text(note, encoding="utf-8")
 
 
 if __name__ == "__main__":

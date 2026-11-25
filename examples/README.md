@@ -2,7 +2,9 @@
 
 Self-contained demos for **bench-run**. Each folder is its own workspace: `run.py` sets `BENCH_RUN_ROOT` to that folder so configs and results stay under `examples/<name>/bench_run/`.
 
-Entry scripts use [`_bootstrap.py`](_bootstrap.py) so the on-disk `bench_run/` layout tree does not shadow the Python package (repo root is put on `sys.path`).
+Domain logic lives in [`project/`](project/) (plain modules, one cell per file, no `bench_run` imports). Each example’s `run.py` imports from `project` and wraps a thin runner for the harness.
+
+Entry scripts use [`_bootstrap.py`](_bootstrap.py) so the on-disk `bench_run/` layout tree does not shadow the Python package (repo root + `examples/` are put on `sys.path`).
 
 ```bash
 pip install -e .   # optional if you run from a checkout; bootstrap also adds the repo root
@@ -14,11 +16,11 @@ python run.py --config baseline.toml
 |---|---|
 | [01_run](01_run/) | Single Run via `main(runner)`, metrics, outputs |
 | [02_matrix](02_matrix/) | Ablation grid, repeats, stats / compare / figures |
-| [03_campaign](03_campaign/) | Phased campaign, winner selection, handoff params |
-| [04_resume](04_resume/) | Incomplete matrix → `--resume` shortfall |
-| [05_distributed](05_distributed/) | Coordinator + worker on localhost |
-| [06_preflight_cancel](06_preflight_cancel/) | Preflight cancel vs soft failure |
+| [03_campaign](03_campaign/) | Phased campaign, winner selection, param + file handoff |
+| [04_failure_modes](04_failure_modes/) | Preflight cancel vs runtime fail (`max_failures`) |
+| [05_halt_resume](05_halt_resume/) | Fail halt + resume, and `continue_on_fail=true` contrast |
+| [06_distributed](06_distributed/) | Coordinator + worker on localhost |
 
-Suggested order: **01 → 02 → 03 → 06 → 04 → 05**.
+Suggested order: **01 → 02 → 03 → 04 → 05 → 06**.
 
 Reference docs: [concepts](../docs/concepts.md), [config](../docs/config.md), [cli](../docs/cli.md), [lifecycle](../docs/lifecycle.md), [execution](../docs/execution.md).

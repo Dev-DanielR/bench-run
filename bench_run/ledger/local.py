@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from bench_run.artifacts import (
+from bench_run.fs import (
     allocate_stamp_dir,
     read_json,
     read_manifest,

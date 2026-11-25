@@ -25,7 +25,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 | Item | Detail |
 |---|---|
 | Files | `bench_run/{__init__,config,fingerprint}.py`, `pyproject.toml` |
-| Deliver | Package imports; TOML load/classify; `resolve*ConfigPath`; workspace root; canonical fingerprint sha256; write config snapshots via `tomli-w` |
+| Deliver | Package imports; TOML load/classify; `resolve_*_config_path`; workspace root; canonical fingerprint sha256; write config snapshots via `tomli-w` |
 | Deps | `tomli-w` |
 | Test | Classify fixtures; fingerprint golden vectors (sorted keys, bool, overlay params) |
 
@@ -33,7 +33,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 
 | Item | Detail |
 |---|---|
-| Files | `bench_run/run.py`, `bench_run/ledger/{base,local}.py`, `artifacts.py` (metadata/metrics IO) |
+| Files | `bench_run/layers/run.py`, `bench_run/ledger/{base,local}.py`, `fs.py` (metadata/metrics IO) |
 | Deliver | `Ledger` protocol methods used by Run; `Run` context manager; preflight; metrics/items; `output/`/`pin_artifact`; complete/fail/cancel; stamp dirs |
 | Test | Temp dir Run happy path + preflight cancel + `__exit__` finalize |
 
@@ -41,7 +41,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 
 | Item | Detail |
 |---|---|
-| Files | `matrix.py`, stats/compare in `artifacts.py`, `figures.py` |
+| Files | `layers/matrix.py`, `reporting/` (stats/compare/figures) |
 | Deliver | Reuse scan, shortfall, `max_failures`, cell status, `stats.json`/`compare.json`, figures Agg, `execute`/`resume`/`compare` |
 | Test | 2-cell matrix repeats=2 with reuse; failure cap marks cell failed; figures smoke |
 
@@ -49,7 +49,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 
 | Item | Detail |
 |---|---|
-| Files | `campaign.py` |
+| Files | `layers/campaign.py` |
 | Deliver | Phase loop, `select_winner`, handoff params + file copy under `handoff/<phase_id>/`, `continue_on_fail`, preflight-cancel halt, resume restores handoff |
 | Test | 2-phase campaign with handoff key merge and artifact file presence |
 
@@ -65,7 +65,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 
 | Item | Detail |
 |---|---|
-| Files | `server/{app,claims,store,aggregate}.py` |
+| Files | `execution/server/{app,claims,store,aggregate,coordinator}.py` |
 | Deliver | Starlette app; store under `data_dir`; claims/leases; package multipart PUT; fingerprints; matrices/campaigns submit; resume; auth bearer; aggregation hooks |
 | Deps | `starlette`, `uvicorn` |
 | Test | httpx ASGI transport: claim → package → manifest update |
@@ -74,7 +74,7 @@ Ordered PRs / slices. Each slice is independently reviewable; later slices depen
 
 | Item | Detail |
 |---|---|
-| Files | `ledger/coordinator.py`, `worker.py`; wire `main` roles |
+| Files | `ledger/coordinator.py`, `execution/worker.py`; wire `main` → execution runners |
 | Deliver | HTTP client ledger; claim loop; heartbeat; handoff download; push package; coordinator drives Matrix/Campaign in-server |
 | Deps | `httpx` |
 | Test | Local integration: coordinator+worker threads against 1-cell matrix |

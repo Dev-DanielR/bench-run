@@ -1,6 +1,0 @@
-[run]
-name = "off_cfg"
-fingerprint_keys = ["mode"]
-
-[params]
-mode = "off"

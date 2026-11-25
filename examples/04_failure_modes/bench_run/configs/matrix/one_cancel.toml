@@ -1,0 +1,11 @@
+[matrix]
+name = "one_cancel"
+repeats = 1
+
+[[matrix.cells]]
+id = "cancel"
+config = "missing_data.toml"
+
+[[matrix.cells]]
+id = "ok"
+config = "ok.toml"

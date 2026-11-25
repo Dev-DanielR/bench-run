@@ -6,7 +6,8 @@ Teaches the smallest useful project: attach a `runner`, call `main(runner)`, dri
 
 | Path | Role |
 |---|---|
-| `run.py` | Entrypoint; sets `BENCH_RUN_ROOT` to this folder |
+| `run.py` | Entrypoint; wraps [`project.baseline`](../project/baseline.py) |
+| `../project/baseline.py` | Plain cell: score + note text |
 | `bench_run/configs/run/baseline.toml` | Experiment knobs under `[run]` / `[params]` |
 
 ## Run

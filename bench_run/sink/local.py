@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from bench_run.artifacts import utc_now_iso, write_metrics
+from bench_run.fs import utc_now_iso, write_metrics
 from bench_run.sink.base import (
     Event,
     LogLine,

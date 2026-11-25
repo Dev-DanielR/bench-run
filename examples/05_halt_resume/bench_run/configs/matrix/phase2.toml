@@ -1,0 +1,13 @@
+[matrix]
+name = "phase2"
+repeats = 1
+
+[[matrix.cells]]
+id = "a"
+config = "cell2a.toml"
+params = { phase = 2 }
+
+[[matrix.cells]]
+id = "b"
+config = "cell2b.toml"
+params = { phase = 2 }

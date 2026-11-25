@@ -1,0 +1,20 @@
+[campaign]
+name = "continue_on"
+repeats = 1
+continue_on_fail = true
+
+[[campaign.phases]]
+id = 1
+name = "phase1"
+matrix = "phase1.toml"
+winner_metric = "accuracy"
+winner_direction = "max"
+handoff_keys = ["mode"]
+
+[[campaign.phases]]
+id = 2
+name = "phase2"
+matrix = "phase2.toml"
+winner_metric = "accuracy"
+winner_direction = "max"
+handoff_keys = ["mode"]

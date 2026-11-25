@@ -1,0 +1,5 @@
+[run]
+name = "boom_cfg"
+
+[params]
+label = "boom"

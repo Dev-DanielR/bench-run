@@ -10,7 +10,7 @@ TOML-driven experiment orchestration: single runs, ablation matrices with finger
 
 ## Get started
 
-Walk through the self-contained demos under [`examples/`](examples/) (run → matrix → campaign → preflight → resume → distributed). Each folder sets `BENCH_RUN_ROOT` so configs and results stay local to that example.
+Walk through the self-contained demos under [`examples/`](examples/) (run → matrix → campaign → failure modes → halt/resume → distributed). Each folder sets `BENCH_RUN_ROOT` so configs and results stay local to that example.
 
 ```bash
 pip install -e .

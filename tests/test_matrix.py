@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from bench_run import MatrixRun, Run
-from bench_run.artifacts import read_json
+from bench_run.fs import read_json
 from bench_run.config import dump_toml
 
 

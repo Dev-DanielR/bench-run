@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from bench_run import PreflightCancel, Run
-from bench_run.artifacts import read_metadata, read_metrics
+from bench_run.fs import read_metadata, read_metrics
 
 
 @pytest.fixture(autouse=True)

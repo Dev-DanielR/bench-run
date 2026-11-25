@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from bench_run.artifacts import (
+from bench_run.fs import (
     allocate_stamp_dir,
     read_metadata,
     read_metrics,

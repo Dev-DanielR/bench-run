@@ -1,6 +1,0 @@
-[run]
-name = "on_cfg"
-fingerprint_keys = ["mode"]
-
-[params]
-mode = "on"

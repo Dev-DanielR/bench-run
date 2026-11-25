@@ -25,6 +25,11 @@ def bind_example_root(example_root: Path | str) -> Path:
 
     sys.path[:] = [p for p in sys.path if not _is_example_dir(p)]
 
+    examples = root.parent  # examples/<name> -> examples/
+    examples_s = str(examples)
+    if examples_s not in sys.path:
+        sys.path.insert(0, examples_s)
+
     repo = root.parents[1]  # examples/<name> -> repo root
     repo_s = str(repo)
     if repo_s not in sys.path:
