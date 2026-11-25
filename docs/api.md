@@ -17,14 +17,14 @@ with CampaignRun("phased.toml") as campaign:
     campaign.execute(runner)
 
 # Resume an incomplete campaign directory
-CampaignRun.resume("bench_run/results/campaign/<stamp>_phased").execute(runner)
+CampaignRun.resume("results/campaign/<stamp>_phased").execute(runner)
 
 # CLI: local drive, coordinator drive, or worker claim-loop — same runner
 if __name__ == "__main__":
     raise SystemExit(main(runner))
 ```
 
-Workspace root: env `BENCH_RUN_ROOT` else cwd. All relative paths resolve from that root.
+Workspace root: `BENCH_RUN_ROOT` if set; else `cwd/.bench-run` when that directory exists; else `cwd`. Configs and results live directly under that root.
 
 ## `Run`
 
@@ -170,8 +170,8 @@ Parses argv and runs local drive, coordinator serve(+drive), or worker claim loo
 
 | Symbol | Behavior |
 |---|---|
-| `resolve_config_path(name)` | Bare stem → `bench_run/configs/run/<stem>.toml`; absolute/relative paths unchanged if they exist |
-| `resolve_matrix_config_path(name)` | Same under `bench_run/configs/matrix/` |
-| `resolve_campaign_config_path(name)` | Same under `bench_run/configs/campaign/` |
+| `resolve_config_path(name)` | Bare stem → `configs/run/<stem>.toml`; absolute/relative paths unchanged if they exist |
+| `resolve_matrix_config_path(name)` | Same under `configs/matrix/` |
+| `resolve_campaign_config_path(name)` | Same under `configs/campaign/` |
 
 Related: [Concepts](concepts.md), [Lifecycle](lifecycle.md), [Artifacts](artifacts.md), [Package](package.md).

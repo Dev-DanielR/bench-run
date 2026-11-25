@@ -112,7 +112,7 @@ stateDiagram-v2
   "updated_at": "2025-01-01T12:05:00Z",
   "finished_at": "2025-01-01T12:05:00Z",
   "paths": {
-    "dir": "bench_run/results/run/20250101_120000_baseline",
+    "dir": "results/run/20250101_120000_baseline",
     "config": "config.toml",
     "log": "log.txt"
   },
@@ -299,7 +299,7 @@ Backend: **matplotlib Agg** (non-interactive).
 | `{metric}.png` | Bar chart of per-cell mean; error bar = std; title = metric name; xlabel = cell id; optional light grid; DPI = 120; `figsize = (max(6, 1.2 * n_cells), 4)` |
 | Preferred order | Config key `matrix.figure_metrics = ["accuracy", …]` if set; else built-in preferred list `["accuracy", "f1", "loss", "score"]` intersecting present keys; then remaining keys sorted |
 
-`figures/` may be empty if matplotlib is missing: figure generation is best-effort and logs a warning, then continues without failing the matrix.
+Figure generation requires the `figures` extra (`matplotlib`). If it is missing, writing figures raises `ImportError` (matrix reports fail closed).
 
 ## Campaign `manifest.json`
 

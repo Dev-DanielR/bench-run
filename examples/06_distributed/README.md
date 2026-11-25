@@ -8,9 +8,9 @@ Teaches the same matrix as local mode, driven by a coordinator while a worker cl
 |---|---|
 | `run.py` | Maps `cell_id` → [`project.on`](../project/on.py) / [`project.off`](../project/off.py) |
 | `../project/on.py` / `off.py` | Plain cells shared with example 02 |
-| `bench_run/configs/run/on.toml` / `off.toml` | Cell configs |
-| `bench_run/configs/matrix/factor_a.toml` | Experiment matrix |
-| `bench_run/configs/execution/lab.toml` | `[coordinator]` + `[worker]` on localhost |
+| `configs/run/on.toml` / `off.toml` | Cell configs |
+| `configs/matrix/factor_a.toml` | Experiment matrix |
+| `configs/execution/lab.toml` | `[coordinator]` + `[worker]` on localhost |
 
 ## Run (two terminals)
 
@@ -28,7 +28,7 @@ Omit `--until-done` to keep the old forever-serve / forever-claim behavior (Ctrl
 
 ## What to inspect
 
-- Coordinator store under `bench_run/results/_coordinator/` (runs, matrices, manifests, stats, figures)
+- Coordinator store under `results/_coordinator/` (runs, matrices, manifests, stats, figures)
 - Matrix `log.txt` under `_coordinator/matrices/<id>/` for progress status lines
 - Worker never runs `MatrixRun.execute`; it only claims `RunSpec`s
 

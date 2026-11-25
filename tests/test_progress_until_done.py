@@ -23,7 +23,7 @@ def _bench_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BENCH_RUN_ROOT", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     for kind in ("run", "matrix", "campaign", "execution"):
-        (tmp_path / "bench_run" / "configs" / kind).mkdir(parents=True)
+        (tmp_path / "configs" / kind).mkdir(parents=True)
     return tmp_path
 
 
@@ -36,7 +36,7 @@ def _free_port() -> int:
 def test_progress_matrix_lines(tmp_path):
     dump_toml(
         {"run": {"name": "r1"}, "params": {"k": 1}},
-        tmp_path / "bench_run" / "configs" / "run" / "r1.toml",
+        tmp_path / "configs" / "run" / "r1.toml",
     )
     dump_toml(
         {
@@ -46,7 +46,7 @@ def test_progress_matrix_lines(tmp_path):
                 "cells": [{"id": "c1", "config": "r1.toml"}],
             }
         },
-        tmp_path / "bench_run" / "configs" / "matrix" / "m1.toml",
+        tmp_path / "configs" / "matrix" / "m1.toml",
     )
 
     def runner(run: Run) -> None:
@@ -67,7 +67,7 @@ def test_progress_matrix_lines(tmp_path):
 def test_run_log_lines_not_doubled(tmp_path):
     dump_toml(
         {"run": {"name": "r1"}, "params": {}},
-        tmp_path / "bench_run" / "configs" / "run" / "r1.toml",
+        tmp_path / "configs" / "run" / "r1.toml",
     )
 
     def runner(run: Run) -> None:
@@ -92,7 +92,7 @@ def test_run_log_lines_not_doubled(tmp_path):
 def test_until_done_coord_requires_exp(tmp_path):
     dump_toml(
         {"coordinator": {"name": "lab", "bind": "127.0.0.1:0"}, "worker": {"url": "http://x"}},
-        tmp_path / "bench_run" / "configs" / "execution" / "lab.toml",
+        tmp_path / "configs" / "execution" / "lab.toml",
     )
 
     def runner(run: Run) -> None:
@@ -168,7 +168,7 @@ def test_until_done_worker_coord_down(tmp_path):
 def test_until_done_coordinator(tmp_path):
     dump_toml(
         {"run": {"name": "r1"}, "params": {}},
-        tmp_path / "bench_run" / "configs" / "run" / "r1.toml",
+        tmp_path / "configs" / "run" / "r1.toml",
     )
     dump_toml(
         {
@@ -178,7 +178,7 @@ def test_until_done_coordinator(tmp_path):
                 "cells": [{"id": "c1", "config": "r1.toml"}],
             }
         },
-        tmp_path / "bench_run" / "configs" / "matrix" / "m1.toml",
+        tmp_path / "configs" / "matrix" / "m1.toml",
     )
     port = _free_port()
     dump_toml(
@@ -189,7 +189,7 @@ def test_until_done_coordinator(tmp_path):
                 "claim": {"poll_s": 0.1, "lease_s": 60},
             },
         },
-        tmp_path / "bench_run" / "configs" / "execution" / "lab.toml",
+        tmp_path / "configs" / "execution" / "lab.toml",
     )
 
     def runner(run: Run) -> None:

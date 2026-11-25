@@ -1,8 +1,8 @@
 # Config schemas
 
-Workspace root: `BENCH_RUN_ROOT` if set, else process cwd. All relative paths in configs resolve from that root.
+Workspace root: `BENCH_RUN_ROOT` if set; else `cwd/.bench-run` when that directory exists; else process cwd. All relative paths in configs resolve from that root. Configs live under `configs/{run,matrix,campaign,execution}/`.
 
-## Run — `bench_run/configs/run/`
+## Run — `configs/run/`
 
 ```toml
 [run]
@@ -25,7 +25,7 @@ name = "baseline"                 # required unless Run(..., name=) is passed
 | `data.root` | unset | Dataset root under workspace |
 | `params.*` | `{}` | Free-form; merged with matrix overlays and campaign handoff |
 
-## Matrix — `bench_run/configs/matrix/`
+## Matrix — `configs/matrix/`
 
 ```toml
 [matrix]
@@ -58,7 +58,7 @@ config = "ablation_off.toml"
 
 Campaign-driven matrices: use the child matrix's `max_failures`, unless `[campaign].max_failures` is set (then that override applies).
 
-## Campaign — `bench_run/configs/campaign/`
+## Campaign — `configs/campaign/`
 
 ```toml
 [campaign]
@@ -92,13 +92,13 @@ handoff_keys = ["mode_a"]
 | `phases[].handoff_keys` | `[]` | Param keys copied from winner into cumulative handoff |
 | `phases[].winner_cell` / `force_cell` | unset | Force the winner cell; both keys are aliases of each other |
 
-## Execution — `bench_run/configs/execution/`
+## Execution — `configs/execution/`
 
 ```toml
 [coordinator]
 name = "lab_cluster"
 bind = "0.0.0.0:8443"             # host:port; host parsed from bind
-# data_dir = "bench_run/results/_coordinator"   # default
+# data_dir = "results/_coordinator"   # default
 # auth = { token_env = "BENCH_RUN_TOKEN" }
 # uvicorn_workers = 1             # always 1: driver is in-process
 # lease_scan_s = 10               # reclaim expired leases
@@ -119,7 +119,7 @@ heartbeat_fraction = 3            # heartbeat every lease_s / 3
 | Key | Default | Notes |
 |---|---|---|
 | `coordinator.bind` | — | `host:port` listen address |
-| `coordinator.data_dir` | `bench_run/results/_coordinator` | Server-side ledger store root |
+| `coordinator.data_dir` | `results/_coordinator` | Server-side ledger store root |
 | `coordinator.auth.token_env` | unset | Env var holding shared bearer token |
 | `coordinator.uvicorn_workers` | `1` | Single process; MatrixRun/CampaignRun driver lives in-process |
 | `coordinator.lease_scan_s` | `10` | How often the server re-queues expired claims |

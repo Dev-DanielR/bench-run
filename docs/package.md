@@ -92,29 +92,36 @@ from bench_run.ledger import LocalFsLedger, CoordinatorLedger
 
 ## Dependencies
 
-| Dep | Use |
-|---|---|
-| Python 3.11+ | `tomllib`, typing |
-| `matplotlib` | matrix figures (Agg); import deferred; missing → warn and skip figures |
-| `httpx` | `CoordinatorLedger` HTTP client (explicit dep) |
-| `starlette` | Coordinator HTTP app |
-| `uvicorn` | ASGI server; **workers=1** (single process — MatrixRun/CampaignRun driver is in-process) |
-| `tomli-w` | Writing config snapshots |
+| Dep | Extra | Use |
+|---|---|---|
+| Python 3.11+ | (core) | `tomllib`, typing |
+| `tomli-w` | (core) | Writing config snapshots |
+| `alive-progress` | (core) | Optional TTY progress bars |
+| `matplotlib` | `figures` | Matrix figures (Agg); missing → `ImportError` with install hint |
+| `httpx` | `coord` | `CoordinatorLedger` HTTP client |
+| `starlette` | `coord` | Coordinator HTTP app |
+| `uvicorn` | `coord` | ASGI server; **workers=1** (in-process matrix/campaign driver) |
+| `python-multipart` | `coord` | Coordinator package upload |
 
 No YAML library. TOML read via stdlib `tomllib`; write via `tomli-w`.
+
+Install from git (PyPI pending):
+
+```bash
+pip install "bench-run[figures,coord] @ git+https://github.com/Dev-DanielR/bench-run.git"
+```
 
 ### pyproject deps sketch
 
 ```toml
 [project]
 requires-python = ">=3.11"
-dependencies = [
-  "matplotlib",
-  "httpx",
-  "starlette",
-  "uvicorn",
-  "tomli-w",
-]
+dependencies = ["tomli-w", "alive-progress"]
+
+[project.optional-dependencies]
+figures = ["matplotlib"]
+coord = ["httpx", "starlette", "uvicorn", "python-multipart"]
+dev = ["pytest", "matplotlib", "httpx", "starlette", "uvicorn", "python-multipart"]
 ```
 
 ## Entry

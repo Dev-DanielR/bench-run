@@ -14,7 +14,7 @@ def _bench_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BENCH_RUN_ROOT", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     for kind in ("run", "matrix", "campaign"):
-        (tmp_path / "bench_run" / "configs" / kind).mkdir(parents=True)
+        (tmp_path / "configs" / kind).mkdir(parents=True)
     return tmp_path
 
 
@@ -24,14 +24,14 @@ def _setup_configs(tmp_path):
             "run": {"name": "cell_a", "fingerprint_keys": ["mode_a", "mode_b"]},
             "params": {"mode_a": "x", "mode_b": "keep"},
         },
-        tmp_path / "bench_run" / "configs" / "run" / "cell_a.toml",
+        tmp_path / "configs" / "run" / "cell_a.toml",
     )
     dump_toml(
         {
             "run": {"name": "cell_b", "fingerprint_keys": ["mode_a", "mode_b"]},
             "params": {"mode_a": "y", "mode_b": "keep"},
         },
-        tmp_path / "bench_run" / "configs" / "run" / "cell_b.toml",
+        tmp_path / "configs" / "run" / "cell_b.toml",
     )
     dump_toml(
         {
@@ -44,7 +44,7 @@ def _setup_configs(tmp_path):
                 ],
             }
         },
-        tmp_path / "bench_run" / "configs" / "matrix" / "stage1.toml",
+        tmp_path / "configs" / "matrix" / "stage1.toml",
     )
     dump_toml(
         {
@@ -57,7 +57,7 @@ def _setup_configs(tmp_path):
                 ],
             }
         },
-        tmp_path / "bench_run" / "configs" / "matrix" / "stage2.toml",
+        tmp_path / "configs" / "matrix" / "stage2.toml",
     )
     dump_toml(
         {
@@ -85,7 +85,7 @@ def _setup_configs(tmp_path):
                 ],
             }
         },
-        tmp_path / "bench_run" / "configs" / "campaign" / "phased.toml",
+        tmp_path / "configs" / "campaign" / "phased.toml",
     )
 
 
@@ -165,7 +165,7 @@ def test_preflight_cancel_halts_campaign(tmp_path):
             "data": {"root": "data/nope"},
             "params": {},
         },
-        tmp_path / "bench_run" / "configs" / "run" / "cell_a.toml",
+        tmp_path / "configs" / "run" / "cell_a.toml",
     )
 
     campaign = CampaignRun("phased.toml")

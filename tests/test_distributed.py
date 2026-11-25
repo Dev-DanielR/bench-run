@@ -24,7 +24,7 @@ def _bench_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BENCH_RUN_ROOT", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     for kind in ("run", "matrix", "campaign", "execution"):
-        (tmp_path / "bench_run" / "configs" / kind).mkdir(parents=True)
+        (tmp_path / "configs" / kind).mkdir(parents=True)
     return tmp_path
 
 
@@ -37,7 +37,7 @@ def _free_port() -> int:
 def test_distributed_one_cell_matrix(tmp_path):
     dump_toml(
         {"run": {"name": "r1"}, "params": {"k": 1}},
-        tmp_path / "bench_run" / "configs" / "run" / "r1.toml",
+        tmp_path / "configs" / "run" / "r1.toml",
     )
 
     store = ServerStore(tmp_path / "coord", lease_scan_s=60.0)

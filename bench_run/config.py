@@ -12,15 +12,29 @@ class ConfigError(ValueError):
     """Config load / classification / resolution error."""
 
 
+SIDECAR_DIRNAME = ".bench-run"
+
+
 def workspace_root() -> Path:
+    """Resolve the experiment workspace.
+
+    Order: ``BENCH_RUN_ROOT`` if set; else ``cwd/.bench-run`` when that path is
+    a directory; else ``cwd``. The workspace holds ``configs/`` and ``results/``
+    directly (no nested ``bench_run/`` data dir).
+    """
     env = os.environ.get("BENCH_RUN_ROOT")
     if env:
         return Path(env).resolve()
-    return Path.cwd().resolve()
+    cwd = Path.cwd().resolve()
+    sidecar = cwd / SIDECAR_DIRNAME
+    if sidecar.is_dir():
+        return sidecar
+    return cwd
 
 
 def bench_run_dir() -> Path:
-    return workspace_root() / "bench_run"
+    """Workspace root (configs/results live directly under it)."""
+    return workspace_root()
 
 
 def load_toml(path: Path | str) -> dict[str, Any]:
@@ -79,7 +93,7 @@ def _resolve_under(name: str | Path, subdir: str) -> Path:
 
 
 def resolve_config_path(name: str | Path) -> Path:
-    """Bare stem → bench_run/configs/run/<stem>.toml."""
+    """Bare stem → configs/run/<stem>.toml under the workspace."""
     return _resolve_under(name, "run")
 
 

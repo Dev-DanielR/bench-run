@@ -10,7 +10,7 @@ Protocol, claims, REST: [Ledger](ledger.md). Injection overview: [Concepts](conc
 [coordinator]
 name = "lab_cluster"
 bind = "0.0.0.0:8443"          # host:port for uvicorn
-# data_dir = "bench_run/results/_coordinator"  # server store root (default)
+# data_dir = "results/_coordinator"  # server store root (default)
 # auth = { token_env = "BENCH_RUN_TOKEN" }
 
 [worker]
@@ -29,7 +29,7 @@ url = "http://coordinator.example:8443"
 | Key | Default | Notes |
 |---|---|---|
 | `coordinator.bind` | required | `"host:port"`; uvicorn listens here |
-| `coordinator.data_dir` | `bench_run/results/_coordinator` | manifests, run packages, claim db |
+| `coordinator.data_dir` | `results/_coordinator` | manifests, run packages, claim db |
 | `coordinator.auth.token_env` | unset | if set, require `Authorization: Bearer` matching env value |
 | `worker.url` | required for worker | base URL, no trailing slash required (normalize strip) |
 | `worker.claim.poll_s` | `2.0` | sleep after HTTP 204 empty claim |
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 1. `POST /v1/claims` with `{worker_id, lease_s, filters?}`.
 2. On **204**: sleep `poll_s`; goto 1.
-3. On **200** `RunSpec`: create working dir under `bench_run/results/run/<run_id>/` (or temp under worker data); write `config.toml` from spec; materialize `handoff_artifacts` into `run_dir/handoff/`.
+3. On **200** `RunSpec`: create working dir under `results/run/<run_id>/` (or temp under worker data); write `config.toml` from spec; materialize `handoff_artifacts` into `run_dir/handoff/`.
 4. Start heartbeat task (`lease_s / heartbeat_fraction`).
 5. `Run.preflight()`; on cancel → `POST …/cancel`, stop heartbeat, `DELETE` claim, goto 1.
 6. `runner(run)`; on success `complete()` → `PUT …/package`; on exception `fail()` → `PUT …/package`.

@@ -1,11 +1,12 @@
 # Layout and artifacts
 
 ```
-bench_run/
+{workspace}/                                  # BENCH_RUN_ROOT, or cwd/.bench-run, or cwd
   configs/
     {run,matrix,campaign}/                    # experiment definition
     execution/                                # coordinator + worker (optional)
   results/{run,matrix,campaign}/<stamp>_<stem>/
+  run.py                                      # typical sidecar entry (optional)
   data/<dataset>/{raw,artifacts}/             # persistent; from [data].root
   benchmarks/                                 # fixtures: inputs, questions, expected answers, …
 ```
@@ -42,7 +43,13 @@ Coordinator server store (`coordinator.data_dir`) mirrors the same `results/{run
 
 ## Workspace root
 
-`BENCH_RUN_ROOT` environment variable if set, otherwise process cwd. The tree `bench_run/` is resolved under that root.
+Resolved in order:
+
+1. `BENCH_RUN_ROOT` if set  
+2. else `cwd/.bench-run` when that path is a directory (recommended app sidecar)  
+3. else process `cwd`
+
+`configs/` and `results/` live **directly** under that workspace (no nested `bench_run/` data directory). If both a flat `configs/` in `cwd` and `cwd/.bench-run/` exist, the sidecar wins.
 
 Exact JSON shapes, status enums, and figure filenames: [Artifacts](artifacts.md).
 

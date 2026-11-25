@@ -7,7 +7,8 @@
 - In distributed mode only the coordinator drives `MatrixRun` / `CampaignRun`; workers execute claimed `Run`s only.
 - Entry is a project script that calls `main(runner)`; there is no standalone package console script that supplies a runner.
 - Coordinator runs a single uvicorn worker process so the in-process driver and FS store stay coherent.
-- Figures require `matplotlib`; absence logs a warning and skips PNGs.
+- Figures require the `figures` extra (`matplotlib`); absence raises at figure write with an install hint.
+- Distributed roles require the `coord` extra; absence raises at `--role coordinator|worker` with an install hint.
 
 ## Roadmap
 

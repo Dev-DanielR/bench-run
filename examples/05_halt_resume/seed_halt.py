@@ -23,7 +23,7 @@ from bench_run import CampaignRun
 sys.path.append(str(EXAMPLE_ROOT))
 from run import runner
 
-PHASE1 = EXAMPLE_ROOT / "bench_run" / "configs" / "matrix" / "phase1.toml"
+PHASE1 = EXAMPLE_ROOT / "configs" / "matrix" / "phase1.toml"
 
 
 def _set_boom_fail(fail: bool) -> None:

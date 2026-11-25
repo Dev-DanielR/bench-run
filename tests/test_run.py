@@ -12,7 +12,7 @@ from bench_run.fs import read_metadata, read_metrics
 def _bench_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BENCH_RUN_ROOT", str(tmp_path))
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "bench_run" / "configs" / "run").mkdir(parents=True)
+    (tmp_path / "configs" / "run").mkdir(parents=True)
     return tmp_path
 
 

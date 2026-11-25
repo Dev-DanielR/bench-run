@@ -47,6 +47,13 @@ Rules:
 
 Wrong count or ambiguous sections → exit code **1** with message on stderr.
 
+Missing optional extras also exit **1** (or fail the layer) with an install hint:
+
+| Extra | When |
+|---|---|
+| `coord` | `--role coordinator` or `--role worker` without httpx/starlette/uvicorn |
+| `figures` | Matrix figure write without matplotlib (`ImportError`; local CLI maps unexpected errors to **2**) |
+
 ## Role behavior
 
 | Invocation | Behavior |
@@ -88,7 +95,7 @@ stateDiagram-v2
 
 ## Workspace root
 
-`BENCH_RUN_ROOT` if set, else `Path.cwd()`. All relative config and `bench_run/` paths resolve from this root.
+`BENCH_RUN_ROOT` if set; else `cwd/.bench-run` when that directory exists; else `Path.cwd()`. All relative config and result paths resolve from this workspace root.
 
 ## Examples
 
@@ -97,7 +104,7 @@ stateDiagram-v2
 python my_bench.py --config factor_a.toml
 
 # Local resume
-python my_bench.py --resume bench_run/results/campaign/20250101_120000_phased
+python my_bench.py --resume results/campaign/20250101_120000_phased
 
 # Coordinator (serve only)
 python my_bench.py --role coordinator --config lab.toml

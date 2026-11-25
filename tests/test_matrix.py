@@ -14,18 +14,18 @@ def _bench_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BENCH_RUN_ROOT", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     for kind in ("run", "matrix", "campaign"):
-        (tmp_path / "bench_run" / "configs" / kind).mkdir(parents=True)
+        (tmp_path / "configs" / kind).mkdir(parents=True)
     return tmp_path
 
 
 def _write_run_configs(tmp_path):
     dump_toml(
         {"run": {"name": "on_cfg", "fingerprint_keys": ["mode"]}, "params": {"mode": "on"}},
-        tmp_path / "bench_run" / "configs" / "run" / "on_cfg.toml",
+        tmp_path / "configs" / "run" / "on_cfg.toml",
     )
     dump_toml(
         {"run": {"name": "off_cfg", "fingerprint_keys": ["mode"]}, "params": {"mode": "off"}},
-        tmp_path / "bench_run" / "configs" / "run" / "off_cfg.toml",
+        tmp_path / "configs" / "run" / "off_cfg.toml",
     )
 
 
@@ -43,7 +43,7 @@ def test_two_cell_repeats(tmp_path):
             ],
         }
     }
-    dump_toml(matrix_cfg, tmp_path / "bench_run" / "configs" / "matrix" / "factor_a.toml")
+    dump_toml(matrix_cfg, tmp_path / "configs" / "matrix" / "factor_a.toml")
 
     def runner(run: Run) -> None:
         run.add_metric("accuracy", 0.9 if run.params.get("mode") == "on" else 0.5)
@@ -81,7 +81,7 @@ def test_failure_cap(tmp_path):
             ],
         }
     }
-    dump_toml(matrix_cfg, tmp_path / "bench_run" / "configs" / "matrix" / "flaky.toml")
+    dump_toml(matrix_cfg, tmp_path / "configs" / "matrix" / "flaky.toml")
 
     def runner(run: Run) -> None:
         if run.params.get("mode") == "on":
@@ -121,7 +121,7 @@ def test_reuse_fills_repeats(tmp_path):
             "cells": [{"id": "on", "config": "on_cfg.toml", "params": {"mode": "on"}}],
         }
     }
-    dump_toml(matrix_cfg, tmp_path / "bench_run" / "configs" / "matrix" / "reuse_m.toml")
+    dump_toml(matrix_cfg, tmp_path / "configs" / "matrix" / "reuse_m.toml")
 
     calls = {"n": 0}
 

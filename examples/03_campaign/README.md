@@ -18,9 +18,9 @@ Indexing convention used here:
 |---|---|
 | `run.py` | Campaign entrypoint; `CELLS[(phase, cell_id)]` → project module |
 | `../project/cell1a.py` … `cell2b.py` | Plain per-cell compute + weights |
-| `bench_run/configs/run/cell1a.toml` … `cell2b.toml` | Per-cell run configs (`phase` in `fingerprint_keys`) |
-| `bench_run/configs/matrix/phase1.toml` / `phase2.toml` | Per-phase matrices |
-| `bench_run/configs/campaign/phased.toml` | Phases, winner metric, `handoff_keys` |
+| `configs/run/cell1a.toml` … `cell2b.toml` | Per-cell run configs (`phase` in `fingerprint_keys`) |
+| `configs/matrix/phase1.toml` / `phase2.toml` | Per-phase matrices |
+| `configs/campaign/phased.toml` | Phases, winner metric, `handoff_keys` |
 
 ## Handoff
 
@@ -36,7 +36,7 @@ python run.py --config phased.toml
 
 ## What to inspect
 
-Under `bench_run/results/campaign/<stamp>_phased/`:
+Under `results/campaign/<stamp>_phased/`:
 
 - `winners.json` — winning cell per phase (`mode=x` / cell `a` should win phase 1)
 - `handoff.json` — cumulative `params` + `artifacts` paths under `handoff/`

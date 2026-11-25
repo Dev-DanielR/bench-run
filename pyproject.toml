@@ -9,17 +9,21 @@ description = "TOML-driven experiment harness: Run, MatrixRun, CampaignRun"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
-  "matplotlib",
-  "httpx",
-  "starlette",
-  "uvicorn",
   "tomli-w",
-  "python-multipart",
   "alive-progress",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+figures = ["matplotlib"]
+coord = ["httpx", "starlette", "uvicorn", "python-multipart"]
+dev = [
+  "pytest",
+  "matplotlib",
+  "httpx",
+  "starlette",
+  "uvicorn",
+  "python-multipart",
+]
 
 [tool.setuptools.packages.find]
 include = ["bench_run*"]

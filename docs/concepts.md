@@ -97,4 +97,4 @@ Details: [Artifacts](artifacts.md), [Lifecycle](lifecycle.md), [Ledger](ledger.m
 - **Inline configs.** Dict configs require `name=` or a section `name`; they serialize to `config.toml`.
 - **Handoff.** Driver copies `handoff_keys` from the winning cell’s params and pinned artifact files into `handoff.json` + `handoff/<phase_id>/`. Later Runs receive paths via `RunSpec` / `run.handoff_artifacts`. Optional `winner_cell` / `force_cell` overrides metric-based selection.
 - **Preflight.** Owned by `Run` on the machine that executes it (local driver or worker): structural defaults plus optional hook/override. See [Lifecycle](lifecycle.md#preflight).
-- **Figures.** Matrix charts always attempt after compare; best-effort and non-fatal if matplotlib is missing.
+- **Figures.** Matrix charts always run after compare; requires the `figures` extra (`matplotlib`). Missing install raises `ImportError` with an install hint.

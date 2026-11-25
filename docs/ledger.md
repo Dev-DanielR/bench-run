@@ -162,7 +162,7 @@ Returned by `create_run` (local or server):
 ```json
 {
   "run_id": "20250101_120000_baseline",
-  "dir": "bench_run/results/run/20250101_120000_baseline",
+  "dir": "results/run/20250101_120000_baseline",
   "status": "running"
 }
 ```
@@ -227,7 +227,7 @@ Or path reference instead of inline TOML:
 
 ```json
 {
-  "config_path": "bench_run/configs/matrix/factor_a.toml",
+  "config_path": "configs/matrix/factor_a.toml",
   "name": null,
   "cell_ids": null,
   "resume_dir": null
@@ -396,7 +396,7 @@ class Ledger(Protocol):
     def release_claim(self, claim_id: str) -> None: ...
 ```
 
-`LocalFsLedger`: filesystem under `bench_run/results/`; `enqueue_run` / `claim_run` unused (driver runs inline). `wait_matrix_terminal` returns immediately after in-process drive updates.
+`LocalFsLedger`: filesystem under `results/`; `enqueue_run` / `claim_run` unused (driver runs inline). `wait_matrix_terminal` returns immediately after in-process drive updates.
 
 `CoordinatorLedger` (worker client): buffers outputs; reads log/metrics from the injected `CoordinatorSink` (or disk) when building packages; `complete_run` / `fail_run` / `cancel_run` upload multipart; implements `claim_run` / heartbeats. Handoff download via GET handoff + artifact paths in `RunSpec`.
 

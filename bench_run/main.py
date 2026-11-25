@@ -16,8 +16,7 @@ from bench_run.config import (
     workspace_root,
 )
 from bench_run.execution import local as local_exec
-from bench_run.execution import worker as worker_exec
-from bench_run.execution.server.coordinator import run_coordinator
+from bench_run.extras import COORD_EXTRA_HINT
 from bench_run.layers.run import Run
 
 
@@ -94,6 +93,24 @@ def _resolve_execution(name: str) -> tuple[Path, dict]:
     return path, data
 
 
+def _load_run_coordinator():
+    try:
+        from bench_run.execution.server.coordinator import run_coordinator
+    except ImportError as exc:
+        print(f"error: {COORD_EXTRA_HINT}\n({exc})", file=sys.stderr)
+        return None
+    return run_coordinator
+
+
+def _load_worker():
+    try:
+        from bench_run.execution import worker as worker_exec
+    except ImportError as exc:
+        print(f"error: {COORD_EXTRA_HINT}\n({exc})", file=sys.stderr)
+        return None
+    return worker_exec
+
+
 def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -125,6 +142,9 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 1
+        run_coordinator = _load_run_coordinator()
+        if run_coordinator is None:
+            return 1
         return run_coordinator(
             edata,
             runner,
@@ -146,6 +166,9 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             _epath, edata = _resolve_execution(args.config[0])
         except ConfigError as exc:
             print(f"error: {exc}", file=sys.stderr)
+            return 1
+        worker_exec = _load_worker()
+        if worker_exec is None:
             return 1
         return worker_exec.run(
             edata,

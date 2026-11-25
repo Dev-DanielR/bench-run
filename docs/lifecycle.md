@@ -48,7 +48,7 @@ Owned by `Run` on the **executing** machine (needs local `data.root`, GPUs, hook
 
 1. Config parses as TOML and resolves to a run config.
 2. Required fields present: section `name` (or constructor `name=`).
-3. If `[data].root` is set, the path exists (relative to `bench_run/` or absolute).
+3. If `[data].root` is set, the path exists (relative to the workspace root or absolute).
 4. For matrix/campaign **submit** on the driver: referenced cell/phase config stems resolve to exactly one file (checked at orchestration start, not on the worker).
 
 **Cancel:** `preflight()` returns `False` or raises `PreflightCancel`. No `runner` call. Worker reports `cancelled` for that Run; coordinator marks the cell/phase accordingly.

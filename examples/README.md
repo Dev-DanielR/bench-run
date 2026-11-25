@@ -1,13 +1,11 @@
 # Examples
 
-Self-contained demos for **bench-run**. Each folder is its own workspace: `run.py` sets `BENCH_RUN_ROOT` to that folder so configs and results stay under `examples/<name>/bench_run/`.
+Self-contained demos for **bench-run**. Each folder is its own flat workspace (`configs/`, `results/`): `run.py` sets `BENCH_RUN_ROOT` to that folder via [`_bootstrap.py`](_bootstrap.py).
 
-Domain logic lives in [`project/`](project/) (plain modules, one cell per file, no `bench_run` imports). Each example’s `run.py` imports from `project` and wraps a thin runner for the harness.
-
-Entry scripts use [`_bootstrap.py`](_bootstrap.py) so the on-disk `bench_run/` layout tree does not shadow the Python package (repo root + `examples/` are put on `sys.path`).
+Domain logic lives in [`project/`](project/) (plain modules, one cell per file, no `bench_run` imports). Each example’s `run.py` imports from `project` and wraps a thin runner for the harness. Bootstrap puts `examples/` on `sys.path` so `import project` works.
 
 ```bash
-pip install -e .   # optional if you run from a checkout; bootstrap also adds the repo root
+pip install -e ".[dev]"
 cd examples/01_run
 python run.py --config baseline.toml
 ```

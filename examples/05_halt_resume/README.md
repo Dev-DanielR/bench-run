@@ -22,10 +22,10 @@ Indexing convention:
 | `seed_halt.py` | Runs until fail halt, then sets boom `fail=false` |
 | `../project/cell1a.py` … `cell2b.py` | Shared plain cells |
 | `../project/boom.py` | Raises when `fail=true`; scores 0.4 when `fail=false` |
-| `bench_run/configs/run/boom.toml` | Boom run config (`fingerprint_keys` include `fail`) |
-| `bench_run/configs/matrix/phase1.toml` | Phase 1: `a`, `b`, `boom` (`fail` in cell params) |
-| `bench_run/configs/campaign/phased.toml` | Two-phase campaign, `continue_on_fail = false` |
-| `bench_run/configs/campaign/continue_on.toml` | Same phases, `continue_on_fail = true` |
+| `configs/run/boom.toml` | Boom run config (`fingerprint_keys` include `fail`) |
+| `configs/matrix/phase1.toml` | Phase 1: `a`, `b`, `boom` (`fail` in cell params) |
+| `configs/campaign/phased.toml` | Two-phase campaign, `continue_on_fail = false` |
+| `configs/campaign/continue_on.toml` | Same phases, `continue_on_fail = true` |
 
 | Policy | Campaign after boom | Phase 2 | Handoff from phase 1 |
 |---|---|---|---|
@@ -43,7 +43,7 @@ cd examples/05_halt_resume
 python seed_halt.py
 
 # 2) Resume — re-drive phase 1 (a/b reuse), boom succeeds, handoff, phase 2
-python run.py --resume bench_run/results/campaign/<stamp>_phased
+python run.py --resume results/campaign/<stamp>_phased
 ```
 
 Use the path printed by `seed_halt.py`.
@@ -77,7 +77,7 @@ python run.py --config continue_on.toml
 
 ### What to inspect (continue)
 
-Under `bench_run/results/campaign/<stamp>_continue_on/`:
+Under `results/campaign/<stamp>_continue_on/`:
 
 - `metadata.json` — `status: complete` (campaign finished despite a failed phase)
 - `manifest.json` — phase 1 `failed`; phase 2 `ok`

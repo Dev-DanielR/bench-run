@@ -7,6 +7,6 @@ build/
 .pytest_cache/
 .venv/
 venv/
-bench_run/results/
-examples/**/bench_run/results/
+**/.bench-run/results/
+examples/**/results/
 *.svg
