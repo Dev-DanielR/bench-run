@@ -75,6 +75,7 @@ def build_run_from_spec(
     *,
     sink: Any | None = None,
     log_to_console: bool = False,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> Run:
     """Create a Run bound to the claim's run_id and local working dir."""
     run_id = spec["run_id"]
@@ -130,6 +131,7 @@ def build_run_from_spec(
         log_to_console=log_to_console,
         ledger=ledger,
         sink=run_sink,
+        preflight_hook=preflight_hook,
         parent=spec.get("parent"),
         fingerprint=spec.get("fingerprint"),
         handoff_artifacts=handoff_paths or None,
@@ -149,6 +151,7 @@ def execute_claimed_run(
     ledger: CoordinatorLedger,
     *,
     log_to_console: bool = False,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> str:
     """Run one claimed spec. Returns terminal status."""
     claim_id = spec.get("claim_id") or ""
@@ -164,7 +167,12 @@ def execute_claimed_run(
         )
         hb.start()
 
-    run = build_run_from_spec(spec, ledger, log_to_console=log_to_console)
+    run = build_run_from_spec(
+        spec,
+        ledger,
+        log_to_console=log_to_console,
+        preflight_hook=preflight_hook,
+    )
     status = "failed"
     try:
         try:
@@ -217,6 +225,7 @@ def worker_loop(
     until_done: bool = False,
     idle_polls: int = 5,
     health_url: str | None = None,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     """Claim loop.
 
@@ -292,7 +301,11 @@ def worker_loop(
         if log_to_console:
             print(f"{utc_now_iso()} worker: claim {rid}", flush=True)
         status = execute_claimed_run(
-            spec, runner, ledger, log_to_console=log_to_console
+            spec,
+            runner,
+            ledger,
+            log_to_console=log_to_console,
+            preflight_hook=preflight_hook,
         )
         if log_to_console:
             print(f"{utc_now_iso()} worker: {status} {rid}", flush=True)
@@ -306,6 +319,7 @@ def run(
     until_done: bool = False,
     idle_polls: int = 5,
     log_to_console: bool = True,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     """Validate worker execution config and run the claim loop."""
     wsec = dict(execution_data.get("worker") or {})
@@ -338,6 +352,7 @@ def run(
             until_done=bool(until_done),
             idle_polls=int(idle_polls),
             health_url=url.rstrip("/") + "/health",
+            preflight_hook=preflight_hook,
         )
         return int(code)
     except Exception as exc:

@@ -52,12 +52,14 @@ class MatrixRun:
         log_to_console: bool = True,
         tty_bar: bool | None = None,
         sink: Any | None = None,
+        preflight_hook: Callable[[Run], bool | None] | None = None,
     ) -> None:
         self.ledger = ledger or LocalFsLedger()
         self.sink = sink or LocalFsSink(
             log_to_console=log_to_console,
             tty_bar=tty_bar,
         )
+        self._preflight_hook = preflight_hook
         self._cell_ids_filter = list(cell_ids) if cell_ids is not None else None
         self._config_path: Path | None = None
         self._scope: Scope | None = None
@@ -510,6 +512,7 @@ class MatrixRun:
                 name=(run_data.get("run") or {}).get("name") or cell_entry["config_stem"],
                 ledger=self.ledger,
                 sink=self.sink.with_options(tty_bar=False),
+                preflight_hook=self._preflight_hook,
                 parent=parent,
                 params_overlay=dict(cell_cfg.get("params") or {}),
                 fingerprint=fp,
@@ -639,6 +642,7 @@ class MatrixRun:
         sink: Any | None = None,
         log_to_console: bool = True,
         tty_bar: bool | None = None,
+        preflight_hook: Callable[[Run], bool | None] | None = None,
     ) -> MatrixRun:
         d = Path(dir)
         meta = read_metadata(d)
@@ -648,6 +652,7 @@ class MatrixRun:
                 log_to_console=log_to_console,
                 tty_bar=tty_bar,
             )
+            m._preflight_hook = preflight_hook
             m._bind_scope()
             return m
 

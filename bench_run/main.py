@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import sys
 from pathlib import Path
 from typing import Callable
@@ -95,23 +96,27 @@ def _resolve_execution(name: str) -> tuple[Path, dict]:
 
 def _load_run_coordinator():
     try:
-        from bench_run.execution.server.coordinator import run_coordinator
+        mod = importlib.import_module("bench_run.execution.server.coordinator")
     except ImportError as exc:
         print(f"error: {COORD_EXTRA_HINT}\n({exc})", file=sys.stderr)
         return None
-    return run_coordinator
+    return mod.run_coordinator
 
 
 def _load_worker():
     try:
-        from bench_run.execution import worker as worker_exec
+        return importlib.import_module("bench_run.execution.worker")
     except ImportError as exc:
         print(f"error: {COORD_EXTRA_HINT}\n({exc})", file=sys.stderr)
         return None
-    return worker_exec
 
 
-def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
+def main(
+    runner: Callable[[Run], None],
+    argv: list[str] | None = None,
+    *,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
+) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     log_to_console = not args.no_console_log
@@ -176,6 +181,7 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             until_done=bool(args.until_done),
             idle_polls=int(args.idle_polls),
             log_to_console=log_to_console,
+            preflight_hook=preflight_hook,
         )
 
     # local
@@ -185,6 +191,7 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             runner,
             log_to_console=log_to_console,
             tty_bar=tty_bar,
+            preflight_hook=preflight_hook,
         )
 
     if not args.config:
@@ -213,6 +220,7 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             runner,
             log_to_console=log_to_console,
             tty_bar=tty_bar,
+            preflight_hook=preflight_hook,
         )
 
     try:
@@ -226,6 +234,7 @@ def main(runner: Callable[[Run], None], argv: list[str] | None = None) -> int:
             phase_ids=args.phase_ids or None,
             log_to_console=log_to_console,
             tty_bar=tty_bar,
+            preflight_hook=preflight_hook,
         )
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)

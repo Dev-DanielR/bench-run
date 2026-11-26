@@ -131,3 +131,33 @@ def test_reuse_fills_repeats(tmp_path):
 
     MatrixRun("reuse_m.toml").execute(runner)
     assert calls["n"] == 0
+
+
+def test_matrix_forwards_preflight_hook(tmp_path):
+    _write_run_configs(tmp_path)
+    matrix_cfg = {
+        "matrix": {
+            "name": "hook_m",
+            "repeats": 1,
+            "cells": [
+                {"id": "on", "config": "on_cfg.toml", "params": {"mode": "on"}},
+                {"id": "off", "config": "off_cfg.toml", "params": {"mode": "off"}},
+            ],
+        }
+    }
+    dump_toml(matrix_cfg, tmp_path / "configs" / "matrix" / "hook_m.toml")
+    seen: list[str] = []
+
+    def hook(run: Run) -> bool:
+        seen.append(run.params.get("mode", ""))
+        return False
+
+    def runner(run: Run) -> None:
+        raise AssertionError("runner must not run after preflight cancel")
+
+    matrix = MatrixRun("hook_m.toml", preflight_hook=hook)
+    matrix.execute(runner)
+    cells = {c["id"]: c for c in matrix._manifest["cells"]}
+    assert cells["on"]["status"] == "cancelled"
+    assert cells["off"]["status"] == "cancelled"
+    assert set(seen) == {"on", "off"}

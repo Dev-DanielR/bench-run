@@ -57,7 +57,7 @@ Owned by `Run` on the **executing** machine (needs local `data.root`, GPUs, hook
 
 Any preflight cancel on a cell in a phase → that cell `cancelled`, the phase `cancelled`, **no** winner selection, **no** handoff merge for that phase, and the **campaign stops**. `continue_on_fail` is ignored for preflight cancels. Other in-flight cells may still finish recording, but the phase and campaign do not proceed to a win path.
 
-**Extension:** override `Run.check_config`, or pass `preflight_hook(run) -> bool` (default checks then hook).
+**Extension:** override `Run.check_config`, or pass `preflight_hook(run) -> bool` on `Run`, `MatrixRun`, `CampaignRun`, or `main(..., preflight_hook=...)` (structural checks then hook). The same hook applies to every shortfall / claimed `Run` on that process.
 
 ## Who drives matrix / campaign
 

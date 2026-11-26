@@ -107,6 +107,7 @@ MatrixRun(
     sink: Sink | None = None,
     repeats: int | None = None,
     max_failures: int | None = None,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 )
 ```
 
@@ -114,6 +115,7 @@ MatrixRun(
 |---|---|
 | `cell_ids` | Optional filter; only these cells run |
 | `repeats` / `max_failures` | Override config when set (campaign drive uses these) |
+| `preflight_hook` | Forwarded to every shortfall `Run` |
 
 ### Methods
 
@@ -135,12 +137,14 @@ CampaignRun(
     phase_ids: list[int | str] | None = None,
     ledger: Ledger | None = None,
     sink: Sink | None = None,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 )
 ```
 
 | Param | Notes |
 |---|---|
 | `phase_ids` | Optional filter; only these phases run (others `skipped`) |
+| `preflight_hook` | Forwarded to child matrices / shortfall `Run`s |
 
 ### Methods
 
@@ -153,10 +157,17 @@ CampaignRun(
 ## `main`
 
 ```python
-main(runner: Callable[[Run], None]) -> int
+main(
+    runner: Callable[[Run], None],
+    argv: list[str] | None = None,
+    *,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
+) -> int
 ```
 
 Parses argv and runs local drive, coordinator serve(+drive), or worker claim loop. See [CLI](cli.md).
+
+`preflight_hook` is applied on every `Run` the local driver or worker constructs. Coordinators enqueue only; pass the same hook on worker processes.
 
 | Exit code | Meaning |
 |---|---|

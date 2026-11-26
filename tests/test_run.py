@@ -89,3 +89,25 @@ def test_data_root_missing_cancels(tmp_path):
         with pytest.raises(PreflightCancel):
             run.preflight()
     assert run.status == "cancelled"
+
+
+def test_main_forwards_preflight_hook(tmp_path):
+    from bench_run.config import dump_toml
+    from bench_run.main import main
+
+    dump_toml(
+        {"run": {"name": "hooked"}, "params": {}},
+        tmp_path / "configs" / "run" / "hooked.toml",
+    )
+    seen: list[str] = []
+
+    def hook(run):
+        seen.append(run.config_stem)
+        return False
+
+    def runner(run):
+        raise AssertionError("runner must not run after preflight cancel")
+
+    code = main(runner, ["--config", "hooked"], preflight_hook=hook)
+    assert code == 3
+    assert seen == ["hooked"]

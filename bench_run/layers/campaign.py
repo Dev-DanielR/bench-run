@@ -43,12 +43,14 @@ class CampaignRun:
         log_to_console: bool = True,
         tty_bar: bool | None = None,
         sink: Any | None = None,
+        preflight_hook: Callable[[Run], bool | None] | None = None,
     ) -> None:
         self.ledger = ledger or LocalFsLedger()
         self.sink = sink or LocalFsSink(
             log_to_console=log_to_console,
             tty_bar=tty_bar,
         )
+        self._preflight_hook = preflight_hook
         self._scope: Scope | None = None
         self._phase_ids_filter = (
             {str(p) for p in phase_ids} if phase_ids is not None else None
@@ -328,6 +330,7 @@ class CampaignRun:
             sink=self.sink.with_options(tty_bar=False),
             repeats=repeats,
             max_failures=max_failures,
+            preflight_hook=self._preflight_hook,
         )
         matrix._open_new()
         phase_entry["matrix_id"] = matrix.id
@@ -460,6 +463,8 @@ class CampaignRun:
                         run_data,
                         name=(run_data.get("run") or {}).get("name") or cell_entry["config_stem"],
                         ledger=self.ledger,
+                        sink=self.sink.with_options(tty_bar=False),
+                        preflight_hook=self._preflight_hook,
                         parent=parent,
                         params_overlay=dict(cell_cfg.get("params") or {}),
                         handoff_artifacts=handoff_paths or None,
@@ -673,6 +678,7 @@ class CampaignRun:
         sink: Any | None = None,
         log_to_console: bool = True,
         tty_bar: bool | None = None,
+        preflight_hook: Callable[[Run], bool | None] | None = None,
     ) -> CampaignRun:
         d = Path(dir)
         meta = read_metadata(d)
@@ -702,6 +708,7 @@ class CampaignRun:
         c._winners = read_json(winners_path) if winners_path.is_file() else {"phases": {}}
         c._resuming = True
         c._config_path = d / "config.toml"
+        c._preflight_hook = preflight_hook
         c.sink = sink or LocalFsSink(
             log_to_console=log_to_console,
             tty_bar=tty_bar,

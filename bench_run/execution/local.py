@@ -44,10 +44,11 @@ def _drive_run(
     name: str | None,
     log_to_console: bool,
     tty_bar: bool,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     sink = make_local_sink(log_to_console=log_to_console, tty_bar=tty_bar)
     try:
-        with Run(path, name=name, sink=sink) as run:
+        with Run(path, name=name, sink=sink, preflight_hook=preflight_hook) as run:
             run.preflight()
             run.progress_line(f"run body start id={run.id}")
             with run.progress_bar(None, title=f"run:{run.config_stem}"):
@@ -70,6 +71,7 @@ def _drive_matrix(
     cell_ids: list[str] | None,
     log_to_console: bool,
     tty_bar: bool,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     sink = make_local_sink(log_to_console=log_to_console, tty_bar=tty_bar)
     matrix = MatrixRun(
@@ -77,6 +79,7 @@ def _drive_matrix(
         name=name,
         cell_ids=cell_ids,
         sink=sink,
+        preflight_hook=preflight_hook,
     )
     matrix.execute(runner)
     return layer_exit_code(matrix)
@@ -90,6 +93,7 @@ def _drive_campaign(
     phase_ids: list[str] | None,
     log_to_console: bool,
     tty_bar: bool,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     sink = make_local_sink(log_to_console=log_to_console, tty_bar=tty_bar)
     campaign = CampaignRun(
@@ -97,6 +101,7 @@ def _drive_campaign(
         name=name,
         phase_ids=phase_ids,
         sink=sink,
+        preflight_hook=preflight_hook,
     )
     campaign.execute(runner)
     return layer_exit_code(campaign)
@@ -113,6 +118,7 @@ def run(
     phase_ids: list[str] | None = None,
     log_to_console: bool = True,
     tty_bar: bool = True,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     """Drive a local experiment. ``data`` is unused today (path carries config)."""
     del data  # resolved by layer constructors from path
@@ -124,6 +130,7 @@ def run(
                 name=name,
                 log_to_console=log_to_console,
                 tty_bar=tty_bar,
+                preflight_hook=preflight_hook,
             )
         if kind == "matrix":
             return _drive_matrix(
@@ -133,6 +140,7 @@ def run(
                 cell_ids=cell_ids,
                 log_to_console=log_to_console,
                 tty_bar=tty_bar,
+                preflight_hook=preflight_hook,
             )
         if kind == "campaign":
             return _drive_campaign(
@@ -142,6 +150,7 @@ def run(
                 phase_ids=phase_ids,
                 log_to_console=log_to_console,
                 tty_bar=tty_bar,
+                preflight_hook=preflight_hook,
             )
         print(f"error: unsupported config kind {kind!r} for local mode", file=sys.stderr)
         return 1
@@ -155,6 +164,7 @@ def resume(
     *,
     log_to_console: bool = True,
     tty_bar: bool = True,
+    preflight_hook: Callable[[Run], bool | None] | None = None,
 ) -> int:
     d = Path(results_dir)
     if not d.is_absolute():
@@ -189,14 +199,14 @@ def resume(
         return 0 if run_obj.status == "complete" else (3 if run_obj.status == "cancelled" else 2)
 
     if layer == "matrix":
-        matrix = MatrixRun.resume(d, sink=sink)
+        matrix = MatrixRun.resume(d, sink=sink, preflight_hook=preflight_hook)
         if matrix.status in ("complete", "cancelled"):
             return 0
         matrix.execute(runner)
         return layer_exit_code(matrix)
 
     if layer == "campaign":
-        campaign = CampaignRun.resume(d, sink=sink)
+        campaign = CampaignRun.resume(d, sink=sink, preflight_hook=preflight_hook)
         if campaign.status in ("complete", "cancelled"):
             return 0
         campaign.execute(runner)
